@@ -1,6 +1,5 @@
 # Note: before run make, do in the shell:
 # source $HOME/code/share/makeenv/makeenv.sh
-
 TGT = addFmaskSDS
 OBJ = 	addFmaskSDS.o \
 	lsat.o \
@@ -26,22 +25,8 @@ util.o: util.c
 hdfutility.o: hdfutility.c
 	$(CC) $(CFLAGS) -c  hdfutility.c -I$(HDFINC)
 
-# link:
-	# ln -sf ../../common/lsat.h
-	# ln -sf ../../common/lsat.c
-	# ln -sf ../../common/lsatmeta.h
-	# ln -sf ../../common/lsatmeta.c
-
-	# ln -sf ../../../share/common/hls_commondef.h
-	# ln -sf ../../../share/common/fillval.h
-	# ln -sf ../../../share/common/util.h
-	# ln -sf ../../../share/common/util.c
-	# ln -sf ../../../share/common/hdfutility.h
-	# ln -sf ../../../share/common/hdfutility.c
-
-	# ln -sf ../../../share/common/hls_projection.h
-	# ln -sf ../../../share/common/hls_projection.c
-
+install:
+	install -m 755 $(TGT) /usr/bin
 clean:
 	rm -f *.o
 
