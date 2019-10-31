@@ -498,7 +498,7 @@ Resources:
           # Cpu: 1024
           # Memory: 2048
           MemoryReservation: 2048
-          Image: '552819999234.dkr.ecr.us-east-1.amazonaws.com/lasrc_aux_download'
+          Image: '552819999234.dkr.ecr.us-east-1.amazonaws.com/lasrc_aux_update'
           MountPoints:
             - SourceVolume: 'lasrcaux'
               ContainerPath: '/var/lasrc_aux'
@@ -561,10 +561,15 @@ Outputs:
     Export:
       Name: !Join [ ':', [ !Ref 'AWS::StackName', 'ClusterName' ] ]
   HlsLandsatTaskDefinitionArn:
-    Description: The arn of the lasrc task
+    Description: The arn of the hls-landsat task
     Value: !Ref 'HlsLandsatTaskDefinition'
     Export:
       Name: !Join [ ':', [ !Ref 'AWS::StackName', 'HlsLandsatTaskDefinitionArn' ] ]
+  LasrcAuxUpdateTaskDefinitionArn:
+    Description: The arn of the lasrc aux update task
+    Value: !Ref 'LasrcAuxUpdateTaskDefinition'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'LasrcAuxUpdateTaskDefinitionArn' ] ]
   ExternalUrl:
     Description: The url of the external load balancer
     Value: !Join ['', ['http://', !GetAtt 'PublicLoadBalancer.DNSName']]
