@@ -3,21 +3,25 @@ stack=$1
 cluster=$(aws cloudformation describe-stacks --stack-name "$stack" \
 --query "Stacks[0].Outputs[?OutputKey=='ClusterName'].OutputValue" --output text)
 task=$(aws cloudformation describe-stacks --stack-name "$stack" \
---query "Stacks[0].Outputs[?OutputKey=='LaSRCTaskDefinitionArn'].OutputValue" --output text)
+--query "Stacks[0].Outputs[?OutputKey=='HlsLandsatTaskDefinitionArn'].OutputValue" --output text)
+granuletype=LANDSAT_SCENE_ID
+command=/usr/local/lasrc_landsat_granule.sh
+# granuleid=LC08_L1TP_027039_20190901_20190901_01_RT
+granuleid=$2
 overrides=$(cat <<EOF
 {
   "containerOverrides": [
     {
-      "name": "lasrc",
-      "command": ["/usr/local/bin/updatelads.py --today"],
+      "name": "hls-landsat",
+      "command": ["$command"],
       "environment": [
         {
-          "name": "L8_AUX_DIR",
-          "value": "/var/lasrc_aux"
+          "name": "$granuletype",
+          "value": "$granuleid"
         },
         {
-          "name": "LAADS_TOKEN",
-          "value": "$LAADS_TOKEN" 
+          "name": "LASRC_AUX_DIR",
+          "value": "/var/lasrc_aux"
         }
       ]
     }

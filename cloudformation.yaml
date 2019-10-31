@@ -19,7 +19,7 @@ Parameters:
   InstanceType:
     Description: EC2 instance type
     Type: String
-    Default: m4.xlarge
+    Default: m3.xlarge
     AllowedValues: [t2.micro, t2.small, t2.medium, t2.large, m3.medium, m3.large,
       m3.xlarge, m3.2xlarge, m4.large, m4.xlarge, m4.2xlarge, m4.4xlarge, m4.10xlarge,
       c4.large, c4.xlarge, c4.2xlarge, c4.4xlarge, c4.8xlarge, c3.large, c3.xlarge,
@@ -437,10 +437,10 @@ Resources:
     Properties:
       LogGroupName: !Join ['', ['ecs/', !Ref 'AWS::StackName', '/tasks']]
 
-  LaSRCAuxTaskDefinition:
+  LasrcAuxDownloadTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: 'lasrcaux'
+      Family: 'lasrc_aux_download'
       # NetworkMode: awsvpc
       RequiresCompatibilities:
         - EC2
@@ -458,11 +458,11 @@ Resources:
               foo: bar
             Scope: shared
       ContainerDefinitions:
-        - Name: 'lasrcaux'
+        - Name: 'lasrc_aux_download'
           # Cpu: 1024
           # Memory: 2048
           MemoryReservation: 2048
-          Image: '552819999234.dkr.ecr.us-east-1.amazonaws.com/lasrc_aux'
+          Image: '552819999234.dkr.ecr.us-east-1.amazonaws.com/lasrc_aux_download'
           MountPoints:
             - SourceVolume: 'lasrcaux'
               ContainerPath: '/var/lasrc_aux'
@@ -473,10 +473,46 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: lasrcaux
 
-  LaSRCTaskDefinition:
+  LasrcAuxUpdateTaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: 'lasrc'
+      Family: 'lasrc_aux_update'
+      # NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - EC2
+      ExecutionRoleArn: !Ref ECSTaskExecutionRole
+      Volumes:
+        - Name: lasrcaux
+          DockerVolumeConfiguration:
+            Autoprovision: true
+            Driver: local
+            DriverOpts:
+              type: nfs
+              device: ":/"
+              o: !Sub "addr=${FileSystem}.efs.${AWS::Region}.amazonaws.com,nfsvers=4.0,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2"
+            Labels:
+              foo: bar
+            Scope: shared
+      ContainerDefinitions:
+        - Name: 'lasrc_aux_update'
+          # Cpu: 1024
+          # Memory: 2048
+          MemoryReservation: 2048
+          Image: '552819999234.dkr.ecr.us-east-1.amazonaws.com/lasrc_aux_download'
+          MountPoints:
+            - SourceVolume: 'lasrcaux'
+              ContainerPath: '/var/lasrc_aux'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: lasrcaux
+
+  HlsLandsatTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: 'hls-landsat'
       # NetworkMode: awsvpc
       RequiresCompatibilities:
         - EC2
@@ -495,11 +531,11 @@ Resources:
               foo: bar
             Scope: shared
       ContainerDefinitions:
-        - Name: 'lasrc'
+        - Name: 'hls-landsat'
           # Cpu: 1024
           # Memory: 2048
           MemoryReservation: 2048
-          Image: '552819999234.dkr.ecr.us-east-1.amazonaws.com/lasrc'
+          Image: '552819999234.dkr.ecr.us-east-1.amazonaws.com/hls-landsat'
           MountPoints:
             - SourceVolume: 'lasrcaux'
               ContainerPath: '/var/lasrc_aux'
@@ -524,11 +560,11 @@ Outputs:
     Value: !Ref 'ECSCluster'
     Export:
       Name: !Join [ ':', [ !Ref 'AWS::StackName', 'ClusterName' ] ]
-  LaSRCTaskDefinitionArn:
+  HlsLandsatTaskDefinitionArn:
     Description: The arn of the lasrc task
-    Value: !Ref 'LaSRCTaskDefinition'
+    Value: !Ref 'HlsLandsatTaskDefinition'
     Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'LaSRCTaskDefinitionArn' ] ]
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'HlsLandsatTaskDefinitionArn' ] ]
   ExternalUrl:
     Description: The url of the external load balancer
     Value: !Join ['', ['http://', !GetAtt 'PublicLoadBalancer.DNSName']]
