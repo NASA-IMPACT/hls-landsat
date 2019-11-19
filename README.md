@@ -26,6 +26,6 @@ The task definitions for updating this `lasrc` auxiliary data are included in `.
 
 Once the auxiliary data is updated, to run the hls-landsat code as a task for a Landsat granule run
 ```shell
-$ ./run_lasrc_task.sh yourstackname LC08_L1TP_027039_20190901_20190901_01_RT
+$ ./run_hlslandsat_task.sh yourstackname LC08_L1TP_027039_20190901_20190901_01_RT
 ```
 
