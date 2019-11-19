@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#! /usr/bin/env python
 import sys, getopt
 import urllib2
 from espa import XMLError, XMLInterface

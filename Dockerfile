@@ -13,7 +13,8 @@ ENV PREFIX=/usr/local \
     HDFLINK=" -lmfhdf -ldf -lm" \
 		L8_AUX_DIR=/usr/local/src \
     ECS_ENABLE_TASK_IAM_ROLE=true \
-    PYTHONPATH="${PREFIX}/lib/python2.7/site-packages"
+    PYTHONPATH="${PREFIX}/lib/python2.7/site-packages" \
+    ACCODE=LaSRCL8V3.5.5
 
 # Move and compile addFmaskSDS
 COPY ./hls_libs/addFmaskSDS ${SRC_DIR}/addFmaskSDS
@@ -25,6 +26,9 @@ RUN cd ${SRC_DIR}/addFmaskSDS \
     && rm -rf addFmaskSDS
 
 COPY lasrc_landsat_granule.sh ./usr/local/lasrc_landsat_granule.sh
+
+RUN pip install --upgrade git+https://github.com/USGS-EROS/espa-python-library.git@v1.1.0#espa
+COPY ./scripts/alter_sr_band_names.py ${PREFIX}/bin/alter_sr_band_names.py
 
 ENTRYPOINT ["/bin/sh", "-c"]
 CMD ["/usr/local/lasrc_landsat_granule.sh"]
