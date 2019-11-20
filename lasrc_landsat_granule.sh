@@ -25,8 +25,9 @@ cd "$landsatdir"
 # Run Fmask
 fmask_usgsLandsatStacked.py -o fmask.img --scenedir ./
 
+fmaskbin=fmask.bin
 # Convert to flat binary
-gdal_translate -of ENVI fmask.img fmask.bin
+gdal_translate -of ENVI fmask.img $fmaskbin
 
 # Convert data from tiled to scanline for espa formatting
 for f in *.TIF
@@ -39,7 +40,8 @@ for f in *.TIF
 mtl=${id}_MTL.txt
 espa_xml="${id}.xml"
 hls_espa_xml="${id}_hls.xml"
-srhdf=${id}_sr.hdf
+srhdf="${id}_sr.hdf"
+outputhdf="${id}_out.hdf"
 
 # Convert to espa format
 convert_lpgs_to_espa --mtl="$mtl"
@@ -53,4 +55,13 @@ alter_sr_band_names.py -i "$espa_xml" -o "$hls_espa_xml"
 # Convert ESPA xml file to HDF
 convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 
+# Run addFmaskSDS
+addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "LaSRC" "$outputhdf" >&2
+if [ $? -ne 0 ]
+then
+	echo "Error in addFmaskSDS: $outputhdf" >&2
+	echo "Line $LINENO of ${BASH_SOURCE[0]}" >&2
+	exit 1
+fi
+# Copy files to S3
 aws s3 sync . "s3://${bucket}/${id}/"
