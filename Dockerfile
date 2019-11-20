@@ -1,4 +1,4 @@
-FROM 552819999234.dkr.ecr.us-east-1.amazonaws.com/hls-base:latest
+FROM 350996086543.dkr.ecr.us-west-2.amazonaws.com/hls-base:latest
 ENV PREFIX=/usr/local \
     SRC_DIR=/usr/local/src \
     GCTPLIB=/usr/local/lib \
