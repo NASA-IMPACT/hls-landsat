@@ -46,7 +46,7 @@ def main(argv):
         elif band.get('name') == 'sr_band7':
             band.set('name', 'band07')
             band.set('product', hls_product)
-        elif band.get('name') == 'sr_aerosol':
+        elif band.get('name') == 'radsat_qa':
             band.set('name', 'bandQA')
             band.set('product', hls_product)
         elif band.get('name') == 'b9':
