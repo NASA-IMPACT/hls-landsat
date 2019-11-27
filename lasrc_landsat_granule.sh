@@ -36,6 +36,7 @@ for f in *.TIF
   gdal_translate -co TILED=NO "$f" "${f}_scan.tif"
   rm "$f"
   mv "${f}_scan.tif" "$f"
+  rm "${f}_scan.IMD"
   done
 
 mtl=${id}_MTL.txt
