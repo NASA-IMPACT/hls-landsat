@@ -49,7 +49,7 @@ outputhdf="${id}_out.hdf"
 convert_lpgs_to_espa --mtl="$mtl"
 
 # Run lasrc
-do_lasrc_l8.py --xml "$espa_xml"
+do_lasrc_landsat.py --xml "$espa_xml"
 
 # Create ESPA xml file using HLS v1.5 band names
 alter_sr_band_names.py -i "$espa_xml" -o "$hls_espa_xml"
