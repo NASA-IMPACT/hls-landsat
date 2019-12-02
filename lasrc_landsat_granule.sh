@@ -12,6 +12,7 @@ trap "rm -rf $landsatdir; exit" INT TERM EXIT
 
 bucket=$OUTPUT_BUCKET
 IFS='_'
+
 # Read into an array as tokens separated by IFS
 read -ra ADDR <<< "$id"
 
@@ -32,9 +33,10 @@ gdal_translate -of ENVI fmask.img $fmaskbin
 # Convert data from tiled to scanline for espa formatting
 for f in *.TIF
   do
-  gdal_translate -co TILED=NO "$f" "${f}_scan"
+  gdal_translate -co TILED=NO "$f" "${f}_scan.tif"
   rm "$f"
-  mv "${f}_scan" "$f"
+  mv "${f}_scan.tif" "$f"
+  rm "${f}_scan.IMD"
   done
 
 mtl=${id}_MTL.txt
@@ -47,7 +49,7 @@ outputhdf="${id}_out.hdf"
 convert_lpgs_to_espa --mtl="$mtl"
 
 # Run lasrc
-do_lasrc_l8.py --xml "$espa_xml"
+do_lasrc_landsat.py --xml "$espa_xml"
 
 # Create ESPA xml file using HLS v1.5 band names
 alter_sr_band_names.py -i "$espa_xml" -o "$hls_espa_xml"
@@ -59,9 +61,10 @@ convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "LaSRC" "$outputhdf" >&2
 if [ $? -ne 0 ]
 then
-	echo "Error in addFmaskSDS: $outputhdf" >&2
-	echo "Line $LINENO of ${BASH_SOURCE[0]}" >&2
-	exit 1
+  echo "Error in addFmaskSDS: $outputhdf" >&2
+  echo "Line $LINENO of ${BASH_SOURCE[0]}" >&2
+  exit 1
 fi
+
 # Copy files to S3
 aws s3 sync . "s3://${bucket}/${id}/"
