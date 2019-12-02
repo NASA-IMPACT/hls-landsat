@@ -1,33 +1,30 @@
-# Note: before run make, do in the shell:
-# source $HOME/code/share/makeenv/makeenv.sh
 TGT = addFmaskSDS
 OBJ = 	addFmaskSDS.o \
 	lsat.o \
 	lsatmeta.o \
 	util.o \
-	hdfutility.o 
+	hdfutility.o
 
 $(TGT): $(OBJ)
-	$(CC) $(CFLAGS) -o $(TGT) $(OBJ) -L$(GCTPLIB) -L$(HDFLIB) -L$(ZLIB) -L$(SZLIB) -L$(JPGLIB) -L$(PROJLIB) $(GCTPLINK) $(HDFLINK)  
+	$(CC) $(CFLAGS) -o $(TGT) $(OBJ) -L$(GCTPLIB) -L$(HDFLIB) -L$(ZLIB) -L$(SZLIB) -L$(JPGLIB) -L$(PROJLIB) $(GCTPLINK) $(HDFLINK)
 
-addFmaskSDS.o: addFmaskSDS.c 
-	$(CC) $(CFLAGS) -c addFmaskSDS.c -I$(HDFINC) -I$(GCTPINC)
+addFmaskSDS.o: addFmaskSDS.c
+	$(CC) $(CFLAGS) -c addFmaskSDS.c -I$(HDFINC) -I$(GCTPINC) -I$(SRC_DIR)
 
-lsat.o: lsat.c
-	$(CC) $(CFLAGS) -c lsat.c -I$(HDFINC)
+lsat.o: ${SRC_DIR}/lsat.c
+	$(CC) $(CFLAGS) -c ${SRC_DIR}/lsat.c -I$(HDFINC) -I$(SRC_DIR)
 
-lsatmeta.o: lsatmeta.c
-	$(CC) $(CFLAGS) -c lsatmeta.c -I$(HDFINC)
+lsatmeta.o: ${SRC_DIR}/lsatmeta.c
+	$(CC) $(CFLAGS) -c ${SRC_DIR}/lsatmeta.c -I$(HDFINC) -I$(SRC_DIR)
 
-util.o: util.c
-	$(CC) $(CFLAGS) -c  util.c -I$(HDFINC)
+util.o: ${SRC_DIR}/util.c
+	$(CC) $(CFLAGS) -c  ${SRC_DIR}/util.c -I$(HDFINC) -I$(SRC_DIR)
 
-hdfutility.o: hdfutility.c
-	$(CC) $(CFLAGS) -c  hdfutility.c -I$(HDFINC)
+hdfutility.o: ${SRC_DIR}/hdfutility.c
+	$(CC) $(CFLAGS) -c  ${SRC_DIR}/hdfutility.c -I$(HDFINC) -I$(SRC_DIR)
 
 install:
 	install -m 755 $(TGT) /usr/bin
 clean:
 	rm -f *.o
-
 

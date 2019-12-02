@@ -16,6 +16,9 @@ ENV PREFIX=/usr/local \
     PYTHONPATH="${PREFIX}/lib/python2.7/site-packages" \
     ACCODE=LaSRCL8V3.5.5
 
+# Move common files to source directory
+COPY ./hls_libs/common $SRC_DIR
+
 # Move and compile addFmaskSDS
 COPY ./hls_libs/addFmaskSDS ${SRC_DIR}/addFmaskSDS
 RUN cd ${SRC_DIR}/addFmaskSDS \
