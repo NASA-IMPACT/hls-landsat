@@ -1,3 +1,4 @@
+ARG AWS_ACCOUNT_ID
 FROM ${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/hls-base:latest
 ENV PREFIX=/usr/local \
     SRC_DIR=/usr/local/src \
