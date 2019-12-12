@@ -7,9 +7,17 @@ After building your base dependencies image and pushing it to ECR you can build 
 
 
 ```shell
-$ docker build --build-arg AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID -t hls-landsat .
+$ docker build --build-arg AWS_ACCOUNT_ID="${$AWS_ACCOUNT_ID}" -t hls-landsat .
 ```
 
 Note: The command above assumes you have exported an environment variable `AWS_ACCOUNT_ID` which references the AWS account where the hls-base reference image is stored.
 
 You can then tag this `hls-landsat` image as `<AWS_ACCOUNT_ID>.dkr.ecr.us-west-2.amazonaws.com/hls-landsat` and push it to ECR.
+
+```shell
+$ docker tag hls-landsat "${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/hls-landsat"
+```
+
+```shell
+$ docker push "${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/hls-landsat"
+```
