@@ -52,10 +52,10 @@ def main(argv):
         elif band.get('name') == 'b9':
             band.set('name', 'band09')
             band.set('product', hls_product)
-        elif band.get('name') == 'b10':
+        elif band.get('name') == 'bt_band10':
             band.set('name', 'band10')
             band.set('product', hls_product)
-        elif band.get('name') == 'b11':
+        elif band.get('name') == 'bt_band11':
             band.set('name', 'band11')
             band.set('product', hls_product)
         elif band.get('name') == 'sr_aerosol':
