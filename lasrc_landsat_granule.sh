@@ -24,7 +24,7 @@ gsutil -m cp -r "$url" /tmp
 cd "$landsatdir"
 
 # Run Fmask
-hlsfmask_usgsLandsatStacked.py -o fmask.img --strict --displacement --scenedir ./
+hlsfmask_usgsLandsatStacked.py -o fmask.img --strict --scenedir ./
 
 fmaskbin=fmask.bin
 # Convert to flat binary
