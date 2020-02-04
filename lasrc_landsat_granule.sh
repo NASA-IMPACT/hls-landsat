@@ -3,21 +3,20 @@
 # Exit on any error
 set -o errexit
 
-# id="LC08_L1TP_027039_20190901_20190901_01_RT"
-id=$LANDSAT_SCENE_ID
-landsatdir=/tmp/${id}
+id="$LANDSAT_SCENE_ID"
+landsatdir="/tmp/${id}"
 
 # Remove tmp files on exit
 trap "rm -rf $landsatdir; exit" INT TERM EXIT
 
-bucket=$OUTPUT_BUCKET
+bucket="$OUTPUT_BUCKET"
 IFS='_'
 
 # Read into an array as tokens separated by IFS
 read -ra ADDR <<< "$id"
 
 # Format GCS url and download
-url=gs://gcp-public-data-landsat/LC08/01/${ADDR[2]:0:3}/${ADDR[2]:3:5}/${id}/
+url="gs://gcp-public-data-landsat/LC08/01/${ADDR[2]:0:3}/${ADDR[2]:3:5}/${id}/"
 gsutil -m cp -r "$url" /tmp
 
 # Enter working directory
@@ -28,7 +27,7 @@ hlsfmask_usgsLandsatStacked.py -o fmask.img --strict --scenedir ./
 
 fmaskbin=fmask.bin
 # Convert to flat binary
-gdal_translate -of ENVI fmask.img $fmaskbin
+gdal_translate -of ENVI fmask.img "$fmaskbin"
 
 # Convert data from tiled to scanline for espa formatting
 for f in *.TIF
@@ -39,7 +38,7 @@ for f in *.TIF
   rm "${f}_scan.IMD"
   done
 
-mtl=${id}_MTL.txt
+mtl="${id}_MTL.txt"
 espa_xml="${id}.xml"
 hls_espa_xml="${id}_hls.xml"
 srhdf="${id}_sr.hdf"
@@ -59,12 +58,6 @@ convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 
 # Run addFmaskSDS
 addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "LaSRC" "$outputhdf" >&2
-if [ $? -ne 0 ]
-then
-  echo "Error in addFmaskSDS: $outputhdf" >&2
-  echo "Line $LINENO of ${BASH_SOURCE[0]}" >&2
-  exit 1
-fi
 
 # Copy files to S3
 aws s3 sync . "s3://${bucket}/${id}/"
