@@ -60,4 +60,6 @@ convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "LaSRC" "$outputhdf" >&2
 
 # Copy files to S3
-aws s3 sync . "s3://${bucket}/${id}/"
+# aws s3 sync . "s3://${bucket}/${id}/"
+
+aws s3 cp "${landsatdir}/${outputhdf}" "s3://${bucket}/${id}/${outputhdf}"
