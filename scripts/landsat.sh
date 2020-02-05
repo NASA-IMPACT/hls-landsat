@@ -5,6 +5,8 @@ set -o errexit
 
 id="$LANDSAT_SCENE_ID"
 landsatdir="/tmp/${id}"
+fmask="${id}_Fmask4.tif"
+fmaskbin=fmask.bin
 
 # Remove tmp files on exit
 trap "rm -rf $landsatdir; exit" INT TERM EXIT
@@ -23,11 +25,11 @@ gsutil -m cp -r "$url" /tmp
 cd "$landsatdir"
 
 # Run Fmask
-hlsfmask_usgsLandsatStacked.py -o fmask.img --strict --scenedir ./
+# hlsfmask_usgsLandsatStacked.py -o fmask.img --strict --scenedir ./
+/usr/local/MATLAB/application/run_Fmask_4_0.sh /usr/local/MATLAB/v95
 
-fmaskbin=fmask.bin
 # Convert to flat binary
-gdal_translate -of ENVI fmask.img "$fmaskbin"
+gdal_translate -of ENVI "$fmask" "$fmaskbin"
 
 # Convert data from tiled to scanline for espa formatting
 for f in *.TIF
