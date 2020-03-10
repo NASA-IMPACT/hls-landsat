@@ -12,14 +12,22 @@ fmaskbin=fmask.bin
 trap "rm -rf $landsatdir; exit" INT TERM EXIT
 
 bucket="$OUTPUT_BUCKET"
-IFS='_'
 
 # Read into an array as tokens separated by IFS
+IFS='_'
 read -ra ADDR <<< "$id"
 
 # Format GCS url and download
 url="gs://gcp-public-data-landsat/LC08/01/${ADDR[2]:0:3}/${ADDR[2]:3:5}/${id}/"
 gsutil -m cp -r "$url" /tmp
+
+# Check solar zenith angle.
+echo "Check solar azimuth"
+solar_zenith_valid=$(check_solar_zenith.py -i "$landsatdir")
+if [ "$solar_zenith_valid" == "invalid" ]; then
+  echo "Invalid solar zenith angle. Exiting now"
+  exit 3
+fi
 
 # Enter working directory
 cd "$landsatdir"
