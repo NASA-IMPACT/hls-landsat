@@ -8,6 +8,7 @@ jobid="$AWS_BATCH_JOB_ID"
 granule="$GRANULE"
 bucket="$OUTPUT_BUCKET"
 inputbucket="$INPUT_BUCKET"
+inputgranule="s3://${inputbucket}/${granule}"
 workingdir="/var/scratch/${jobid}"
 granuledir="${workingdir}/${granule}"
 debug_bucket="$DEBUG_BUCKET"
@@ -18,20 +19,22 @@ ACCODE=Lasrc
 trap "rm -rf $workingdir; exit" INT TERM EXIT
 
 # Create workingdir
-mkdir -p "$workingdir"
+mkdir -p "$granuledir"
 
 fmask="${granule}_Fmask4.tif"
 fmaskbin=fmask.bin
 
 echo "Start processing granules"
 
-# Read into an array as tokens separated by IFS
-IFS='_'
-read -ra ADDR <<< "$granule"
+## Read into an array as tokens separated by IFS
+# IFS='_'
+# read -ra ADDR <<< "$granule"
 
-# Format GCS url and download
-url="gs://gcp-public-data-landsat/LC08/01/${ADDR[2]:0:3}/${ADDR[2]:3:5}/${granule}/"
-gsutil -m cp -r "$url" "$workingdir"
+# # Format GCS url and download
+# url="gs://gcp-public-data-landsat/LC08/01/${ADDR[2]:0:3}/${ADDR[2]:3:5}/${granule}/"
+# gsutil -m cp -r "$url" "$workingdir"
+
+aws s3 cp "$inputgranule" "$granuledir" --recursive
 
 exit_if_exists () {
   if [ ! -z "$replace_existing" ]; then
@@ -46,7 +49,8 @@ exit_if_exists () {
 
 # Check solar zenith angle.
 echo "Check solar azimuth"
-solar_zenith_valid=$(check_solar_zenith.py -i "$granuledir")
+mtl="${granuledir}/${granule}_MTL.txt"
+solar_zenith_valid=$(check_solar_zenith.py -i "$mtl")
 if [ "$solar_zenith_valid" == "invalid" ]; then
   echo "Invalid solar zenith angle. Exiting now"
   exit 3
@@ -56,10 +60,10 @@ fi
 cd "$granuledir"
 
 # Run Fmask
-/usr/local/MATLAB/application/run_Fmask_4_1.sh /usr/local/MATLAB/v96
+# /usr/local/MATLAB/application/run_Fmask_4_1.sh /usr/local/MATLAB/v96
 
 # Convert to flat binary
-gdal_translate -of ENVI "$fmask" "$fmaskbin"
+# gdal_translate -of ENVI "$fmask" "$fmaskbin"
 
 # Convert data from tiled to scanline for espa formatting
 for f in *.TIF
@@ -67,10 +71,9 @@ for f in *.TIF
   gdal_translate -co TILED=NO "$f" "${f}_scan.tif"
   rm "$f"
   mv "${f}_scan.tif" "$f"
-  rm "${f}_scan.IMD"
+  # rm "${f}_scan.IMD"
   done
 
-mtl="${granule}_MTL.txt"
 espa_xml="${granule}.xml"
 hls_espa_xml="${granule}_hls.xml"
 srhdf="sr.hdf"
@@ -89,7 +92,7 @@ alter_sr_band_names.py -i "$espa_xml" -o "$hls_espa_xml"
 convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 
 # Run addFmaskSDS
-addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "$ACCODE" "$outputhdf"
+# addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "$ACCODE" "$outputhdf"
 
 if [ -z "$debug_bucket" ]; then
   aws s3 cp "${outputhdf}" "s3://${bucket}/${outputhdf}"

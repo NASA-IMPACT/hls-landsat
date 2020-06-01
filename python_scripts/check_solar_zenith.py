@@ -18,9 +18,15 @@ def main(argv):
             input_file = arg
 
     metadata = parsemeta(input_file)
-    sun_azimuth = float(
-        metadata["L1_METADATA_FILE"]["IMAGE_ATTRIBUTES"]["SUN_AZIMUTH"]
-    )
+    try:
+        sun_azimuth = float(
+            metadata["L1_METADATA_FILE"]["IMAGE_ATTRIBUTES"]["SUN_AZIMUTH"]
+        )
+    except KeyError:
+        sun_azimuth = float(
+            metadata["LANDSAT_METADATA_FILE"]["IMAGE_ATTRIBUTES"]["SUN_AZIMUTH"]
+        )
+
     solar_zenith = 90 - sun_azimuth
     if (solar_zenith > 76):
         valid = "invalid"
