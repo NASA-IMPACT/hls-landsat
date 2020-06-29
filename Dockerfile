@@ -29,7 +29,7 @@ RUN cd ${SRC_DIR}/addFmaskSDS \
     && cd $SRC_DIR \
     && rm -rf addFmaskSDS
 
-RUN pip install --upgrade git+https://github.com/USGS-EROS/espa-python-library.git@v1.1.0#espa
+RUN pip install --upgrade git+https://github.com/NASA-IMPACT/espa-python-library.git@v1.0-hls
 
 COPY ./python_scripts/* ${PREFIX}/bin/
 COPY ./scripts/* ${PREFIX}/bin/
