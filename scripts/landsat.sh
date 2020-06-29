@@ -8,13 +8,15 @@ jobid="$AWS_BATCH_JOB_ID"
 granule="$GRANULE"
 bucket="$OUTPUT_BUCKET"
 inputbucket="$INPUT_BUCKET"
-inputgranule="s3://${inputbucket}/${granule}"
+prefix="$PREFIX"
+inputgranule="s3://${inputbucket}/${prefix}"
 workingdir="/var/scratch/${jobid}"
 granuledir="${workingdir}/${granule}"
 debug_bucket="$DEBUG_BUCKET"
 replace_existing="$REPLACE_EXISTING"
 ACCODE=Lasrc
 
+echo "testing wat2"
 # Remove tmp files on exit
 trap "rm -rf $workingdir; exit" INT TERM EXIT
 
@@ -59,11 +61,15 @@ fi
 # Enter working directory
 cd "$granuledir"
 
+# ovr and IMD files in AWS PDS break Fmask
+rm *.ovr
+rm *.IMD
+
 # Run Fmask
-# /usr/local/MATLAB/application/run_Fmask_4_1.sh /usr/local/MATLAB/v96
+/usr/local/MATLAB/application/run_Fmask_4_2.sh /usr/local/MATLAB/v96
 
 # Convert to flat binary
-# gdal_translate -of ENVI "$fmask" "$fmaskbin"
+gdal_translate -of ENVI "$fmask" "$fmaskbin"
 
 # Convert data from tiled to scanline for espa formatting
 for f in *.TIF
@@ -92,7 +98,7 @@ alter_sr_band_names.py -i "$espa_xml" -o "$hls_espa_xml"
 convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 
 # Run addFmaskSDS
-# addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "$ACCODE" "$outputhdf"
+addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "$ACCODE" "$outputhdf"
 
 if [ -z "$debug_bucket" ]; then
   aws s3 cp "${outputhdf}" "s3://${bucket}/${outputhdf}"
