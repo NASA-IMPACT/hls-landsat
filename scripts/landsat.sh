@@ -36,6 +36,17 @@ echo "Start processing granules"
 # gsutil -m cp -r "$url" "$workingdir"
 
 aws s3 cp "$inputgranule" "$granuledir" --recursive
+# LC08_L1TP_009010_20200601_20200608_01_T1
+IFS='_'
+read -ra granulecomponents <<< "$granule"
+date=${granulecomponents[3]:0:8}
+year=${date:0:4}
+month=${date:4:2}
+day=${date:6:2}
+pathrow=${granulecomponents[2]}
+
+day_of_year=$(get_doy.py -y "${year}" -m "${month}" -d "${day}")
+outputname="${year}${day_of_year}_${pathrow}"
 
 exit_if_exists () {
   if [ ! -z "$replace_existing" ]; then
@@ -81,7 +92,7 @@ for f in *.TIF
 espa_xml="${granule}.xml"
 hls_espa_xml="${granule}_hls.xml"
 srhdf="sr.hdf"
-outputhdf="${granule}.hdf"
+outputhdf="${outputname}.hdf"
 
 # Convert to espa format
 convert_lpgs_to_espa --mtl="$mtl"
@@ -99,7 +110,7 @@ convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "$ACCODE" "$outputhdf"
 
 if [ -z "$debug_bucket" ]; then
-  aws s3 cp "${outputhdf}" "s3://${bucket}/${outputhdf}"
+  aws s3 cp "${outputhdf}" "s3://${bucket}/${outputname}.hdf"
 else
   # Copy all intermediate files to debug bucket.
   debug_bucket_key=s3://${debug_bucket}/${granule}
