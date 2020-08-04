@@ -24,17 +24,23 @@ static char *L8_REF_SDS_NAME[][L8NRB] = {      {"band01",
 						"band07",
 						"band09"},
 	
-					       {"band01",
-					  	"band02",
-						"band03",
-						"band04",
-						"band05",
-						"band06",
-						"band07",
-						"band09"}
+					       {"B01",
+					  	"B02",
+						"B03",
+						"B04",
+						"B05",
+						"B06",
+						"B07",
+						"B09"}
 				         };
 
-static char *L8_THM_SDS_NAME[] = {"band10", "band11"};
+static char *L8_THM_SDS_NAME[][2] = { 	{"band10", 
+					 "band11"},
+
+					{"B10"},
+					{"B11"}
+				    };
+					
 static char *L8_BANDQA_SDS_NAME = "bandQA";	/* Carryover from TOA input, available in AC output*/
 static char *L8_CLOUD_SDS_NAME = "CLOUD";	/* Created in atmospheric correction */
 //static char *L8_QA_SDS_NAME = "QA";		/* Combination of the above two for HLS*/
