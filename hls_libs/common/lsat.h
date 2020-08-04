@@ -37,8 +37,8 @@ static char *L8_REF_SDS_NAME[][L8NRB] = {      {"band01",
 static char *L8_THM_SDS_NAME[][2] = { 	{"band10", 
 					 "band11"},
 
-					{"B10"},
-					{"B11"}
+					{"B10",
+					 "B11"}
 				    };
 					
 static char *L8_BANDQA_SDS_NAME = "bandQA";	/* Carryover from TOA input, available in AC output*/
