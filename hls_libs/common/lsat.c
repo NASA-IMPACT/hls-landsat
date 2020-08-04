@@ -33,9 +33,10 @@ int open_lsat(lsat_t *lsat, intn access_mode)
 	 * set of SDS names, or any subsequent processing output, which uses 
 	 * a more "standard" set of SDS names. These two groups have index
 	 * 0 and 1 respectively in the first dimension of L8_REF_SDS_NAME[][].
+	 * 						  L8_THM_SDS_NAME[][]
 	 * 
  	 * Band 2 is used to detect which group is used, since in the AC output
-         * band 2 is named "band02-blue" while in subsequent problem is simpley "band02".
+         * band 2 is named "band02-blue" while in subsequent problem is simpley "B02".
 	 */
 
 	/* Allocate memory to hold the SDS for any access mode.
@@ -56,7 +57,7 @@ int open_lsat(lsat_t *lsat, intn access_mode)
 		sngi = 0; 	/* Assuming output is from AC for the moment*/
 		strcpy(sds_name, L8_REF_SDS_NAME[0][1]);	/* "band02-blue" */
 		if ((sds_index = SDnametoindex(sd_id, sds_name)) == FAIL) {
-			strcpy(sds_name, L8_REF_SDS_NAME[1][1]);	/* "band02" */
+			strcpy(sds_name, L8_REF_SDS_NAME[1][1]);	/* "B02" */
 			if ((sds_index = SDnametoindex(sd_id, sds_name)) == FAIL) {
 				sprintf(message, "Neither %s nor %s are found in in %s", 
 						  L8_REF_SDS_NAME[0][0], L8_REF_SDS_NAME[1][0], lsat->fname);
@@ -148,7 +149,7 @@ int open_lsat(lsat_t *lsat, intn access_mode)
 
 		/* Thermal bands */
 		for (ib = 0; ib < 2; ib++) {
-			strcpy(sds_name, L8_THM_SDS_NAME[ib]);
+			strcpy(sds_name, L8_THM_SDS_NAME[sngi][ib]);
 			if ((sds_index = SDnametoindex(lsat->sd_id, sds_name)) == FAIL) {
 				sprintf(message, "Didn't find the SDS %s in %s", sds_name, lsat->fname);
 				Error(message);
@@ -365,7 +366,7 @@ int open_lsat(lsat_t *lsat, intn access_mode)
 
 		/*** Thermal bands ***/
 		for (ib = 0; ib < L8NTB; ib++) {
-			strcpy(sds_name, L8_THM_SDS_NAME[ib]);
+			strcpy(sds_name, L8_THM_SDS_NAME[sngi][ib]);
 			if ((lsat->sds_id_thm[ib] = SDcreate(lsat->sd_id, sds_name, DFNT_INT16, rank, dimsizes)) == FAIL) {
 				sprintf(message, "Cannot create SDS %s", sds_name);
 				Error(message);
