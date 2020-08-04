@@ -19,6 +19,19 @@ ACCODE=Lasrc
 # Remove tmp files on exit
 trap "rm -rf $workingdir; exit" INT TERM EXIT
 
+rename_angle_bands () {
+  anglebasename=$1
+  newbasename=$2
+  mv "${anglebasename}_sensor_azimuth.hdr" "${newbasename}_VAA.hdr"
+  mv "${anglebasename}_sensor_azimuth.img" "${newbasename}_VAA.img"
+  mv "${anglebasename}_sensor_zenith.hdr" "${newbasename}_VZA.hdr"
+  mv "${anglebasename}_sensor_zenith.img" "${newbasename}_VZA.img"
+  mv "${anglebasename}_solar_azimuth.hdr" "${newbasename}_SAA.hdr"
+  mv "${anglebasename}_solar_azimuth.img" "${newbasename}_SAA.img"
+  mv "${anglebasename}_solar_zenith.hdr" "${newbasename}_SZA.hdr"
+  mv "${anglebasename}_solar_zenith.img" "${newbasename}_SZA.img"
+}
+
 # Create workingdir
 mkdir -p "$granuledir"
 
@@ -45,8 +58,7 @@ month=${date:4:2}
 day=${date:6:2}
 pathrow=${granulecomponents[2]}
 
-day_of_year=$(get_doy.py -y "${year}" -m "${month}" -d "${day}")
-outputname="${year}${day_of_year}_${pathrow}"
+outputname="${year}-${month}-${day}_${pathrow}"
 
 exit_if_exists () {
   if [ ! -z "$replace_existing" ]; then
@@ -100,6 +112,9 @@ convert_lpgs_to_espa --mtl="$mtl"
 # Run lasrc
 do_lasrc_landsat.py --xml "$espa_xml"
 
+# Rename Angle bands to align with Collection 2 naming.
+rename_angle_bands "${granule}_b4" "$outputname"
+
 # Create ESPA xml file using HLS v1.5 band names
 alter_sr_band_names.py -i "$espa_xml" -o "$hls_espa_xml"
 
@@ -110,7 +125,11 @@ convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "$ACCODE" "$outputhdf"
 
 if [ -z "$debug_bucket" ]; then
-  aws s3 cp "${outputhdf}" "s3://${bucket}/${outputname}.hdf"
+  aws s3 cp "${outputhdf}" "s3://${bucket}/${outputname}.hdf" 
+  aws s3 cp "$granuledir" "s3://${bucket}" --exclude "*" --include "*_VAA.img" \
+    --include "*_VAA.hdr" --include "*_VZA.hdr" --include "*_VZA.img" \
+    --include "*_SAA.hdr" --include "*_SAA.img" --include "*_SZA.hdr" \
+    --include "*_SZA.img" --recursive
 else
   # Copy all intermediate files to debug bucket.
   debug_bucket_key=s3://${debug_bucket}/${granule}
