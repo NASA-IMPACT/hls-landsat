@@ -1,5 +1,4 @@
 #!/bin/bash
-export OMP_NUM_THREADS=2
 
 # Exit on any error
 set -o errexit
