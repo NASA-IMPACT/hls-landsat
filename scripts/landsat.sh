@@ -43,14 +43,6 @@ fmaskbin=fmask.bin
 
 echo "Start processing granules"
 
-## Read into an array as tokens separated by IFS
-# IFS='_'
-# read -ra ADDR <<< "$granule"
-
-# # Format GCS url and download
-# url="gs://gcp-public-data-landsat/LC08/01/${ADDR[2]:0:3}/${ADDR[2]:3:5}/${granule}/"
-# gsutil -m cp -r "$url" "$workingdir"
-
 aws s3 cp "$inputgranule" "$granuledir" --recursive
 # LC08_L1TP_009010_20200601_20200608_01_T1
 IFS='_'
