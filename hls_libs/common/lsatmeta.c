@@ -57,6 +57,25 @@ int read_mtl(lsatmeta_t *lsatmeta, char *mtl)
 	 * the defined attribute names by "#define" are used for output as they can be slightly
 	 * different from those used in MTL.
 	 */
+
+	
+	// Added on Oct 22, 2020. Initialize all the char array so that if the metadata
+	// names changes, we will see rather than crush the output HDF.
+	char * filler = "UNKNOWN";
+	strcpy(lsatmeta->sceneid, filler);
+	strcpy(lsatmeta->productid, filler);
+	strcpy(lsatmeta->l1proctime, filler);
+	strcpy(lsatmeta->software, filler);		
+	strcpy(lsatmeta->datatype, filler);		
+	strcpy(lsatmeta->sensor, filler);		
+	strcpy(acqdate, filler);
+	strcpy(lsatmeta->sensing_time, filler);
+	strcpy(lsatmeta->ssm_model, filler); 
+	strcpy(lsatmeta->ssm_position, filler);
+	strcpy(proj, filler);
+	strcpy(datum, filler);
+	strcpy(lsatmeta->cs_name, filler);
+
 	while (fgets(line, sizeof(line), fmtl)) {
 		if (strstr(line, "LANDSAT_SCENE_ID")) {
 			cb = mtlval(line, &nc);
@@ -67,9 +86,9 @@ int read_mtl(lsatmeta_t *lsatmeta, char *mtl)
 			cb = mtlval(line, &nc);
 			strncpy(lsatmeta->productid, cb, nc);
 			lsatmeta->productid[nc] = '\0';
-			productid_found = 1;
 		}
-		else if (strstr(line, "FILE_DATE")) {
+		// else if (strstr(line, "FILE_DATE")) { 	/* This was for C1.  Oct 22, 2020 */
+		else if (strstr(line, "DATE_PRODUCT_GENERATED")) { 	
 			cb = mtlval(line, &nc);
 			strncpy(lsatmeta->l1proctime, cb, nc);
 			lsatmeta->l1proctime[nc] = '\0';
@@ -79,7 +98,8 @@ int read_mtl(lsatmeta_t *lsatmeta, char *mtl)
 			strncpy(lsatmeta->software, cb, nc);
 			lsatmeta->software[nc] = '\0';	
 		}
-		else if (strstr(line, "DATA_TYPE")) { 
+		//else if (strstr(line, "DATA_TYPE")) { 	/* This was for C1 */
+		else if (strstr(line, "PROCESSING_LEVEL")) { 
 			cb = mtlval(line, &nc);
 			strncpy(lsatmeta->datatype, cb, nc);
 			lsatmeta->datatype[nc] = '\0';
@@ -128,13 +148,11 @@ int read_mtl(lsatmeta_t *lsatmeta, char *mtl)
 			cb = mtlval(line, &nc);
 			strncpy(lsatmeta->ssm_model, cb, nc);
 			lsatmeta->ssm_model[nc] = '\0'; 
-			ssm_model_found = 1;
 		}
 		else if (strstr(line, "TIRS_SSM_POSITION_STATUS")) {
 			cb = mtlval(line, &nc);
 			strncpy(lsatmeta->ssm_position, cb, nc);
 			lsatmeta->ssm_position[nc] = '\0'; 
-			ssm_position_found = 1;
 		}
 		else if (strstr(line, "MAP_PROJECTION")) {
 			cb = mtlval(line, &nc);
@@ -156,16 +174,11 @@ int read_mtl(lsatmeta_t *lsatmeta, char *mtl)
 			lsatmeta->spatial_resolution = atof(cb);
 
 			/* Have read all items; stop now*/
-			break;
+			// Oct 22, 2020: Do not break; the order of metadata elements may change.
+			// break;
 		}
 	}
 
-	if (ssm_model_found == 0)
-		strcpy(lsatmeta->ssm_model, "NA");
-	if (ssm_position_found == 0)
-		strcpy(lsatmeta->ssm_position, "NA");
-	if (productid_found == 0)
-		strcpy(lsatmeta->productid, "NA");
 
 
 	return(0);
@@ -303,8 +316,6 @@ int write_input_metadata(lsat_t *lsat, lsatmeta_t *lsatmeta)
 	}
 
 	/* L_ACCODE */
-	// fprintf(stderr, "In write_input: accode = %s\n", lsatmeta->accode);
-	// fprintf(stderr, "In write_input: len = %d\n", (int)strlen(lsatmeta->accode));
 	if (strlen(lsatmeta->accode) > 0) {
 		ret = SDsetattr(lsat->sd_id, L_ACCODE,  DFNT_CHAR8, strlen(lsatmeta->accode), (VOIDP)lsatmeta->accode);
 		if (ret != 0) {
@@ -918,8 +929,49 @@ int update_arop_metadata(lsat_t *lsat,
 }
 
 
-int write_solarzenith(lsat_t *lsat, double sz)
+/* The NBAR metadata */
+int write_nbar_solarzenith(lsat_t *lsat, double nbarsz)
 {
-	SDsetattr(lsat->sd_id, "Mean_Solar_Zenith", DFNT_FLOAT64, 1, (VOIDP)&sz);
+	int ret; 
+	ret = SDsetattr(lsat->sd_id, L_NBARSZ, DFNT_FLOAT64, 1, (VOIDP)&nbarsz);
+	if (ret != 0) {
+		Error("Error in SDsetattr");
+		exit(-1);
+	}
+
+	return(0);
+}
+
+int write_mean_angle(lsat_t *lsat, double msz, double msa, double mvz, double mva)
+/* Mar 31, 2020 */
+{
+	int ret; 
+	/* L_MSZ */
+	ret = SDsetattr(lsat->sd_id, L_MSZ, DFNT_FLOAT64, 1, (VOIDP)&msz);
+	if (ret != 0) {
+		Error("Error in SDsetattr");
+		exit(-1);
+	}
+
+	/* L_MSA */
+	ret = SDsetattr(lsat->sd_id, L_MSA, DFNT_FLOAT64, 1, (VOIDP)&msa);
+	if (ret != 0) {
+		Error("Error in SDsetattr");
+		exit(-1);
+	}
+
+	/* L_MVZ */
+	ret = SDsetattr(lsat->sd_id, L_MVZ, DFNT_FLOAT64, 1, (VOIDP)&mvz);
+	if (ret != 0) {
+		Error("Error in SDsetattr");
+		exit(-1);
+	}
+	/* L_MVA */
+	ret = SDsetattr(lsat->sd_id, L_MVA, DFNT_FLOAT64, 1, (VOIDP)&mva);
+	if (ret != 0) {
+		Error("Error in SDsetattr");
+		exit(-1);
+	}
+
 	return(0);
 }
