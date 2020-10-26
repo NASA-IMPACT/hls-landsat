@@ -33,10 +33,9 @@ RUN cd ${SRC_DIR}/addFmaskSDS \
     && make install \
     && cd $SRC_DIR \
     && rm -rf addFmaskSDS
-ENV test=5
-RUN pip3 install git+https://github.com/NASA-IMPACT/hls-utilities@landsat
 
-COPY ./python_scripts/* ${PREFIX}/bin/
+RUN pip3 install git+https://github.com/NASA-IMPACT/hls-utilities@v1.3
+
 COPY ./scripts/* ${PREFIX}/bin/
 ENTRYPOINT ["/bin/sh", "-c"]
 CMD ["landsat.sh"]
