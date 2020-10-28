@@ -1,16 +1,22 @@
 /* Purpose:
- * 1. LaSRC creates a CLOUD band and also passes through the
- *    L1T bandQA. Rename the first as ACmask and igore the second. This is done in lsat.c
- * 2. Add Fmask
+ * 1. Add Fmask as an  SDS, and dilate cloud and cloud shadow by 5 pixels.
+ * 2. Fortran LaSRC creates a CLOUD band and also passes through the
+ *    L1T bandQA. Rename the first as ACmask and ignore the second. It is done in 
+ *    lsat.c which is called by this code.
  * 3. Add metadata from MTL.
- * 4. Change temperature from Kelvin to Celsius.   Jul 24, 2016.
+ * 4. Change the USGS LaSRC reflectance scaling factor and offset to the HLS 10000 and 0 respectively.
+ * 4. Change the USGS LaSRC temperature scaling factor and offset to the HLS 100 and 0 respectively.
+ * 5. Change temperature from Kelvin to Celsius.   
+ * 6. Change the USGS fillvalue 0 to HLS -9999.
+ * 7. The most challenging  part is: change the USGS uint16 to int16 numbers. 
+ *    The HLS function is created to read the Fortran LaSRC output of int16, but the C LaSRC  output is
+ *    uint16. The trick is: When uint16 data is read into int16 variable,  overflow may happen but the
+ *    original bits are preserved; so simply cast the number back to uint16 one by one.
  *
  * Note: We create a new HDF instread of updating the AC output because we 
  *       change the SDS names to HLS convention.
  *
- * A very simple piece of code. But in the future, cloud mask from other tools 
- * such as Fmask can be added and combined in this code too. 
- * (Yes, finally.  Aug 7, 2019. )
+ * Oct 27, 2020. Revised for the new USGS LaSRC.
  */
 
 #include <stdlib.h>
@@ -21,6 +27,7 @@
 #include "lsatmeta.h"
 #include "hls_commondef.h"
 #include "error.h"
+#include "dilation.h"
 
 /* Rename CLOUD as ACmask and reshuffle its bits, add Fmask */
 int copyref_addmask(lsat_t *lsatin, char *fname_fmask, lsat_t *lsstout);
@@ -88,21 +95,6 @@ int main(int argc, char *argv[])
 	getcurrenttime(creationtime);
 	SDsetattr(lsatout.sd_id, "HLS_PROCESSING_TIME", DFNT_CHAR8, strlen(creationtime), (VOIDP)creationtime);
 
-	/* Change Kelvin to Celsius */
-	int iband, irow, icol, k;
-	for (iband = 0; iband < L8NTB; iband++) {
-		for (irow = 0; irow < lsatout.nrow; irow++) {
-			for (icol = 0; icol < lsatout.ncol; icol++) {
-				k = irow * lsatout.ncol + icol;
-				if (lsatout.thm[iband][k] == 0) /* Fill for Kelvin */
-					lsatout.thm[iband][k] = HLS_THM_FILLVAL;
-				else
-					/* The kelvin scale factor is 10; the new Celsius is 100. */
-					lsatout.thm[iband][k] = (lsatout.thm[iband][k] * 0.1 - 273.16) * 100;
-			}
-		}
-	}  
-
 	ret = close_lsat(&lsatin);
 	if (ret != 0) {
 		Error("Error in close_lsat");
@@ -118,21 +110,42 @@ int main(int argc, char *argv[])
 }
 
 
+/* Change the original uint16 to int16 during scale change, change Kelvin to Celsius. Add Fmask */
+/* Oct 27, 2020 */
 int copyref_addmask(lsat_t *lsatin, char *fname_fmask, lsat_t *lsatout)
 {	
 	int ib, k, npix;
 	unsigned char mask, val;
 	char message[MSGLEN];
 
+	/* Used to change uint16 to int16 in scale conversion */
+	uint16 us16;
+	int16  s16;
+
 	/* Spectral bands */
+	/* Reflectance */
 	npix = lsatin->nrow * lsatin->ncol;
 	for (ib = 0; ib < L8NRB; ib++) {
-		for (k = 0; k < npix; k++)
-			lsatout->ref[ib][k] = lsatin->ref[ib][k];
+		for (k = 0; k < npix; k++) {
+			/* Bug. If overflows occurs for int16 in lsat.c, numbers become negative */
+			/* if (lsatin->ref[ib][k] > 0) { */
+			if (lsatin->ref[ib][k] != 0) { 
+				memcpy(&us16, &lsatin->ref[ib][k], 2);
+				s16 = asInt16((us16 * 2.75E-5 - 0.2) * 1E4);
+				lsatout->ref[ib][k] = s16;
+			}
+		}
 	}
+	/* Thermal. Change to Celsius */
 	for (ib = 0; ib < 2; ib++) {
-		for (k = 0; k < npix; k++)
-			lsatout->thm[ib][k] = lsatin->thm[ib][k];
+		for (k = 0; k < npix; k++) {
+			//if (lsatin->thm[ib][k] > 0) {
+			if (lsatin->thm[ib][k] != 0) {
+				memcpy(&us16, &lsatin->thm[ib][k], 2);
+				s16 = asInt16(((us16 * 0.00341802  + 149) - 273.16) * 100);
+				lsatout->thm[ib][k] = s16;
+			}
+		}
 	}
 
 // Aug 7, 2019. This is the bit description of the v1.4 QA SDS. Although we do not keep this SDS
@@ -172,6 +185,9 @@ int copyref_addmask(lsat_t *lsatin, char *fname_fmask, lsat_t *lsatout)
 
 	/* v1.5 ACmask. Essentially CLOUD but with some bits swapped in compliance with the v1.4 QA SDS  */
 	for (k = 0; k < npix; k++) { 
+		/* Set every mask pixel to 0, essentially disabling this SDS.  Oct 27, 2020 */
+		lsatin->accloud[k] =  0;
+
 		if (lsatin->accloud[k] == HLS_MASK_FILLVAL)
 			continue;
 
@@ -217,6 +233,9 @@ int copyref_addmask(lsat_t *lsatin, char *fname_fmask, lsat_t *lsatout)
 	}
 	fclose(ffmask);
 
+	/* Dilate by 5 pixels (i.e., 150m. Effectively the same on the Sentinel-2 side, 7 pixels of 20m). */
+	dilate(fmask, lsatin->nrow, lsatin->ncol, 5);
+
 	for (k = 0; k < npix; k++) { 
 
 		if (fmask[k] == HLS_MASK_FILLVAL)	/* Fmask has used 255 as fill */
@@ -233,6 +252,11 @@ int copyref_addmask(lsat_t *lsatin, char *fname_fmask, lsat_t *lsatout)
 
 		switch(fmask[k])
 		{
+			case 254: 	/* Dilated cloud or cloud shadow */
+				val = 1;
+				mask = (val << 2);
+				break;
+
 			case 5: 	/* CIRRUS. But not set in Fmask4.0. A placeholder for now. Aug 7, 2019 */
 				val = 1;
 				mask = val;
