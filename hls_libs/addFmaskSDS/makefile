@@ -1,6 +1,5 @@
 TGT = addFmaskSDS
 OBJ = 	addFmaskSDS.o \
-	dilation.o \
 	lsat.o \
 	lsatmeta.o \
 	util.o \
@@ -11,9 +10,6 @@ $(TGT): $(OBJ)
 
 addFmaskSDS.o: addFmaskSDS.c
 	$(CC) $(CFLAGS) -c addFmaskSDS.c -I$(HDFINC) -I$(GCTPINC) -I$(SRC_DIR)
-
-dilation.o: ${SRC_DIR}/dilation.c
-	$(CC) $(CFLAGS) -c ${SRC_DIR}/dilation.c -I$(HDFINC) -I$(SRC_DIR)
 
 lsat.o: ${SRC_DIR}/lsat.c
 	$(CC) $(CFLAGS) -c ${SRC_DIR}/lsat.c -I$(HDFINC) -I$(SRC_DIR)
