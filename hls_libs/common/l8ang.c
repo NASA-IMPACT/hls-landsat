@@ -1,69 +1,54 @@
 #include "l8ang.h"
 
-/* Modification on Sep 7, 2017, Nov 20, 2017 */
-
-/* Read scene-based L8 angle, into a structure described in l8ang_t.
- * This is needed for the tiling of solar/view angle.
+/* Read scene-based L8 sun/view zenith/azimuth angle into a structure described in l8ang_t.
+ * This is needed for the gridding of the scene-based angle into MGRS tiles.
  *
- * This function is explicitly designed to read scene-based angle which can 
- * be in two different formats due to the co-existence of pre-collection and 
- * collection data.  The input type is determined from the input filename. 
+ * There are four types of angles in four input files: solar zenith, solar azimuth,
+ * band 4 (red) view zenith and azimuth. USGS chooes the angles of the red band to represent
+ * all spectral bands. 
  *
- * The input file can be a single angle hdf for the pre-collection data, or the 
- * band 1 solar angle file in plain binary format for the collection data, from
- * which view angle filenames for other bands can be derived.  For the collection
- * data, a UGGS tool computes solar angle for all spectral bands, but they are 
- * identifical. Each USGS plain binary file contains azimuth band and zenith band.
- * Both formats have an ENVI header file which provides map info.
+ * The angle is produced by USGS in COG format, and HLS converts it to ENVI binary 
+ * for this code to read, for example:
+ * convert 
+ *   LC08_L1TP_140041_20130503_20200330_02_T1_SZA.TIF
+ * to
+ *   LC08_L1TP_140041_20130503_20200330_02_T1_SZA.img
+ * The parameter filename of this function is the filename of SZA, from which filenames 
+ * for SZA, VZA, VAA can be inferred. The ENVI header filename is inferred from the SZA
+ * filename too and opened for geolocation.
  *
- * After reading, the l8ang instance will contain solar zenith and azimuth, which
- * is same for all bands, and band-specific view zenith and azimuth SDS for all bands
- * except pan and cirrus, as prescribed in l8ang.h.  Since the pre-collection 
- * angle input only has three SDS: solar zenith, band-independent view zenith, and 
- * relative azimuth, the output solar zenith is the same as the input, solar azimuth 
- * is in fact the input relative azimuth, the view zenith for all bands is a replication
- * of input band-independent view zenith, and view azimuth is set to 0 for all bands 
- * as required by the relative azimuth input.
- *
- * A related function open_l8ang(l8ang_t  *l8ang, intn access_mode) 
- * reads or writes the angle in the "standard" format described in l8ang.h.
+ * A related function is open_l8ang(l8ang_t  *l8ang, intn access_mode) which
+ * reads or writes the angle in the tiled format described in l8ang.h.
  * 
- * Sep 7, 2017
- * USGS code saves azimuth that is greater 180 as (azimuth-360). And it can be inferred that
- * Martin's matlab code uses the same convention and saves relative azimuth as solar minus view.
+ * Changes made to USGS angles:
+ * 1. USGS code saves azimuth that is greater 180 as (azimuth-360). This code adds 360 to
+ *    negative azimuth. 
+ * 2. USGS uses 0 as the fill value, which is not a good choice. Change it to 40,000 (after
+ *    scaling).
  */
-int read_l8ang_inpathrow(l8ang_t  *l8ang, char *fname_ang) 
+int read_l8ang_inpathrow(l8ang_t  *l8ang, char *fname_sz) 
 {
-	char header[500];
-	FILE *fhdr;
-	char line[500];
-	char collection; /* Whether the input is collection based */
-	char *cp;
-	int ib;
-	int32 start[2], edge[2];
-	int nrow, ncol;
+	char fname[500];     /* angle filename for SA,VZ,VA is derived from fname_sz */	
+	
 	char message[MSGLEN];
+	FILE *fang;
+	char *base, *cp;
+	char header[500];
+	char line[500];
+	FILE *fhdr;
+	int nrow, ncol, i;
+	int16 tmp;
 
-	/* From the basename of the input file, determine input type */
-	cp = strrchr(fname_ang, '/');
-	if (cp == NULL)
-		cp = fname_ang;
-	if (strstr(cp, "_L1") && strstr(cp, ".img"))
-		collection = 1;
-	else if (strstr(cp, "_geometry.hdf"))
-		collection = 0;
-	else {
-		sprintf(message, "Cannot determine input file type: %s", fname_ang);
-		Error(message);
-		return(1);
-	}
 
-	/* Read header for any type of input */
-	/* Note: There is a function in util.c that reads ENVI header, but it does not
-	 * read the dimension of the image, since Sentinel-2 image dimensions vary
-	 * with bands. So rewrite. Not a good design.
- 	 */ 
-	sprintf(header, "%s.hdr", fname_ang);
+	/* Read the header file of the solar zneith angle image */
+	strcpy(header, fname_sz);
+	base = strrchr(header, '/');
+	if (base == NULL)
+		base = header;
+	else
+		base++;
+	cp = strstr(base, ".img");
+	strcpy(cp, ".hdr");
 	if ((fhdr = fopen(header, "r")) == NULL) {
 		sprintf(message, "Cannot open %s", header);
 		Error(message);
@@ -87,7 +72,8 @@ int read_l8ang_inpathrow(l8ang_t  *l8ang, char *fname_ang)
 			cp = strchr(line, ','); 
 			cp = strchr(cp+1, ','); 
 			cp = strchr(cp+1, ','); 
-		        l8ang->ulx = atof(cp+1); /* Read after 3rd comma */
+			/* Read after 3rd comma. Gdal-translate has adjusted the UL coordinates by half a pixel. */
+		        l8ang->ulx = atof(cp+1); 
 			cp = strchr(cp+1, ','); 
 		        l8ang->uly = atof(cp+1); /* Read after 4th comma */
 			cp = strchr(cp+1, ','); 
@@ -103,155 +89,150 @@ int read_l8ang_inpathrow(l8ang_t  *l8ang, char *fname_ang)
 		}
 	}
 	fclose(fhdr);
-
 	nrow = l8ang->nrow;
-	ncol = l8ang->ncol;   /* To type less later on*/
-	
+	ncol = l8ang->ncol;
+
 	/* Memory for all SDS in l8ang */
-	if ((l8ang->sz = (int16*)calloc(nrow * ncol, sizeof(int16))) == NULL) {
+	if ((l8ang->sz = (uint16*)calloc(nrow * ncol, sizeof(uint16))) == NULL) {
 		Error("Cannot allocate memory");
 		return(1);
 	}
-	if ((l8ang->sa = (int16*)calloc(nrow * ncol, sizeof(int16))) == NULL) {
+	if ((l8ang->sa = (uint16*)calloc(nrow * ncol, sizeof(uint16))) == NULL) {
 		Error("Cannot allocate memory");
 		return(1);
 	}
-	/* No pan, no cirrus */
-	for (ib = 0; ib < L8NRB-1; ib++) {
-		if ((l8ang->vz[ib] = (int16*)calloc(nrow * ncol, sizeof(int16))) == NULL) {
-			Error("Cannot allocate memory");
-			return(1);
-		}
-		if ((l8ang->va[ib] = (int16*)calloc(nrow * ncol, sizeof(int16))) == NULL) {
-			Error("Cannot allocate memory");
-			return(1);
-		}
+	if ((l8ang->vz = (uint16*)calloc(nrow * ncol, sizeof(uint16))) == NULL) {
+		Error("Cannot allocate memory");
+		return(1);
+	}
+	if ((l8ang->va = (uint16*)calloc(nrow * ncol, sizeof(uint16))) == NULL) {
+		Error("Cannot allocate memory");
+		return(1);
 	}
 	
-	/* Read geometry */
-	if (collection) {
-		/********************  Collection based *******************/
-		/*
-		LC08_L1TP_019034_20150117_20170302_01_T1_solar_B01.img
-		LC08_L1TP_019034_20150117_20170302_01_T1_solar_B01.img.hdr
-		LC08_L1TP_019034_20150117_20170302_01_T1_sensor_B01.img
-		LC08_L1TP_019034_20150117_20170302_01_T1_sensor_B01.img.hdr
-		*/
-		char fname_solar_b1[500];
-		char fname[500]; 	/* A specific angle file name */
-		FILE *fang;
-
-		strcpy(fname_solar_b1, fname_ang); /* It is b1 solar */
-
-		/* Solar azimuth and zenith. */
-		/* Read from b1 solar, but should be the same for all bands.  */
-		/* Note: Azimuth before zenith in each file; a bit odd */
-		strcpy(fname, fname_solar_b1);
-		if ((fang = fopen(fname, "r")) == NULL) {
-			sprintf(message, "Cannot open %s", fname);
-			Error(message);
-			return(1);
-		}
-		if (fread(l8ang->sa, sizeof(int16), nrow * ncol, fang) != nrow * ncol) {
-			sprintf(message, "Input file size wrong: %s", fname);
-			Error(message);
-			return(1);
-		}
-		if (fread(l8ang->sz, sizeof(int16), nrow * ncol, fang) != nrow * ncol) {
-			sprintf(message, "Input file size wrong: %s", fname);
-			Error(message);
-			return(1);
-		}
-
-		/* View azimuth and zenith for each band */
-		/* No pan, no cirrus */
-		for (ib = 0; ib < L8NRB-1; ib++) {
-			strcpy(fname, fname_solar_b1);
-			cp = strrchr(fname, '/');	
-			if (cp == NULL)
-				cp = fname;
-			cp = strstr(cp, "_solar_B01");
-			sprintf(cp, "_sensor_B0%d.img", ib+1);
-
-			if ((fang = fopen(fname, "r")) == NULL) {
-				sprintf(message, "Cannot open %s", fname);
-				Error(message);
-				return(1);
-			}
-			if (fread(l8ang->va[ib], sizeof(int16), nrow * ncol, fang) != nrow * ncol) {
-				sprintf(message, "Input file size wrong: %s", fname);
-				Error(message);
-				return(1);
-			}
-			if (fread(l8ang->vz[ib], sizeof(int16), nrow * ncol, fang) != nrow * ncol) {
-				sprintf(message, "Input file size wrong: %s", fname);
-				Error(message);
-				return(1);
-			}
-			fclose(fang);
-		}
+	/* Solar zenith.  */
+	strcpy(fname, fname_sz);
+	if ((fang = fopen(fname, "r")) == NULL) {
+		sprintf(message, "Cannot open %s", fname);
+		Error(message);
+		return(1);
 	}
-	else {	
-		/********************  pre-ollection based *******************/
-		/* HDF, input geometry of all bands have been assumed identical; replicate view geometry 
-		 * for each band, but also consider that only relative azimuth is available in input*/
-		int sd_id, sds_id[3]; 
-		char sds_name[500]; 
-		int sds_index;
-		int isds;
-		int16 *ang[3];
+	/* It is correct to read int16 zenith as uint16 */
+	if (fread(l8ang->sz, sizeof(uint16), nrow * ncol, fang) != nrow * ncol) {
+		sprintf(message, "Input file is too short: %s", fname);
+		Error(message);
+		return(1);
+	}
+	if (fseek(fang, 1, SEEK_CUR) != 0) {
+		sprintf(message, "Input file is too long: %s", fname);
+		Error(message);
+		return(1);
+	}
+	fclose(fang);
 
-		start[0] = 0; edge[0] = nrow;
-		start[1] = 0; edge[1] = ncol;
+	/* Solar azimuth */
+	strcpy(fname, fname_sz);
+	base = strrchr(fname, '/');
+	if (base == NULL)
+		base = fname;
+	else
+		base++;
+	cp = strstr(base, "_SZA.img");
+	if (cp == NULL) {
+		fprintf(stderr, "Filename does not end with _SZA.img: %s\n", fname_sz);
+		return(1);
+	}
+	strcpy(cp, "_SAA.img");
 
-		if ((sd_id = SDstart(fname_ang, DFACC_READ)) == FAIL) {
-			sprintf(message, "Cannot open %s", fname_ang);
+	if ((fang = fopen(fname, "r")) == NULL) {
+		sprintf(message, "Cannot open %s", fname);
+		Error(message);
+		return(1);
+	}
+	for (i = 0; i < nrow * ncol; i++) {
+		if (fread(&tmp, sizeof(int16), 1, fang) != 1) {
+			sprintf(message, "Input file is too short: %s", fname);
 			Error(message);
-			return(ERR_READ);
+			return(1);
 		}
-		for (isds = 0; isds < 3; isds++) {
-			strcpy(sds_name, L8_ANG_SDS_NAME_PC[isds]);
-			if ((sds_index = SDnametoindex(sd_id, sds_name)) == FAIL) {
-				sprintf(message, "Didn't find the SDS %s in %s", sds_name, fname_ang);
-				Error(message);
-				return(ERR_READ);
-			}
-			sds_id[isds] = SDselect(sd_id, sds_index);
+		if (tmp < 0)
+			l8ang->sa[i] = tmp + 36000;
+		else
+			l8ang->sa[i] = tmp;
+			
+	}
+	if (fseek(fang, 1, SEEK_CUR) != 0) {
+		sprintf(message, "Input file is too long: %s", fname);
+		Error(message);
+		return(1);
+	}
+	fclose(fang);
 
-			if ((ang[isds] = (int16*)calloc(nrow * ncol, sizeof(int16))) == NULL) {
-				Error("Cannot allocate memory");
-				return(1);
-			}
+	/* View zenith */
+	strcpy(cp, "_VZA.img");
+	if ((fang = fopen(fname, "r")) == NULL) {
+		sprintf(message, "Cannot open %s", fname);
+		Error(message);
+		return(1);
+	}
+	/* It is correct to read int16 zenith as uint16 */
+	if (fread(l8ang->vz, sizeof(int16), nrow * ncol, fang) != nrow * ncol) {
+		sprintf(message, "Input file is too short: %s", fname);
+		Error(message);
+		return(1);
+	}
+	if (fseek(fang, 1, SEEK_CUR) != 0) {
+		sprintf(message, "Input file is too long: %s", fname);
+		Error(message);
+		return(1);
+	}
+	fclose(fang);
 
-			if (SDreaddata(sds_id[isds], start, NULL, edge, ang[isds]) == FAIL) {
-				sprintf(message, "Error reading sds %s in %s", sds_name, fname_ang);
-				Error(message);
-				return(ERR_READ);
-			}
+	/* View azimuth */
+	strcpy(cp, "_VAA.img");
+	if ((fang = fopen(fname, "r")) == NULL) {
+		sprintf(message, "Cannot open %s", fname);
+		Error(message);
+		return(1);
+	}
+	for (i = 0; i < nrow * ncol; i++) {
+		if (fread(&tmp, sizeof(int16), 1, fang) != 1) {
+			sprintf(message, "Input file is too short: %s", fname);
+			Error(message);
+			return(1);
 		}
+		if (tmp < 0)
+			l8ang->va[i] = tmp + 36000;
+		else
+			l8ang->va[i] = tmp;
+			
+	}
+	if (fseek(fang, 1, SEEK_CUR) != 0) {
+		sprintf(message, "Input file is too long: %s", fname);
+		Error(message);
+		return(1);
+	}
+	fclose(fang);
 
-		/* Solar zenith */
-		memcpy(l8ang->sz, ang[0], nrow * ncol *2);
-		/* Solar azimuth set to relative azimuth */ 
-		memcpy(l8ang->sa, ang[2], nrow * ncol *2); 
-
-		/* View zenith is replicated for each band, view zenith to 0 */
-		for (ib = 0; ib < L8NRB-1; ib++) {
-			memcpy(l8ang->vz[ib], ang[1], nrow * ncol *2); 
-			memset(l8ang->va[ib], '\0',   nrow * ncol *2);  
+	/* Oct 23, 2020. USGS uses 0 as fill value; change the fill value to ANGFILL (40000) */
+	for (i = 0; i < nrow * ncol; i++) {
+		/* When all four angles for a pixel are 0, the pixel is outside the swath. Azimuth
+		 * can be 0 even within the swath. */
+		if ( l8ang->sz[i] == USGS_ANGFILL && 
+		     l8ang->sa[i] == USGS_ANGFILL && 
+		     l8ang->vz[i] == USGS_ANGFILL && 
+		     l8ang->va[i] == USGS_ANGFILL) {
+			l8ang->sz[i] = ANGFILL;
+			l8ang->sa[i] = ANGFILL;
+			l8ang->vz[i] = ANGFILL;
+			l8ang->va[i] = ANGFILL;
 		}
-
-		free(ang[0]);
-		free(ang[1]);
-		free(ang[2]);
 	}
 
 	return(0);
 }
 
-/* Open L8 angle HDF for read/write/create. The input contain per-band view angles
- * and common solar angles. Deals with tiled angle.
- */
+/* Open L8 angle HDF for read/write/create.  For tiled angle.  */
 int open_l8ang(l8ang_t  *l8ang, intn access_mode) 
 {
 	char sds_name[500];     
@@ -264,16 +245,13 @@ int open_l8ang(l8ang_t  *l8ang, intn access_mode)
 	int32 start[2], edge[2];
 	int32 count;
 
-	int ib;
 	char message[MSGLEN];
 	l8ang->access_mode = access_mode;
 
 	l8ang->sz = NULL;
 	l8ang->sa = NULL;
-	for (ib = 0; ib < L8NRB-1; ib++) {
-		l8ang->vz[ib] = NULL;
-		l8ang->va[ib] = NULL;
-	}
+	l8ang->vz = NULL;
+	l8ang->va = NULL;
 
 	/* For DFACC_READ or DFACC_WRITE, find the image dimension from band 1.
 	 * For DFACC_CREATE, image dimension is directly given. 
@@ -303,7 +281,7 @@ int open_l8ang(l8ang_t  *l8ang, intn access_mode)
 		start[0] = 0; edge[0] = l8ang->nrow;
 		start[1] = 0; edge[1] = l8ang->ncol;
 
-		if ((l8ang->sz = (int16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(int16))) == NULL) {
+		if ((l8ang->sz = (uint16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(uint16))) == NULL) {
 			fprintf(stderr, "Cannot allocate memory\n");
 			exit(1);
 		}
@@ -323,7 +301,7 @@ int open_l8ang(l8ang_t  *l8ang, intn access_mode)
 		}
 		l8ang->sds_id_sa = SDselect(l8ang->sd_id, sds_index);
 
-		if ((l8ang->sa = (int16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(int16))) == NULL) {
+		if ((l8ang->sa = (uint16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(uint16))) == NULL) {
 			fprintf(stderr, "Cannot allocate memory\n");
 			exit(1);
 		}
@@ -335,49 +313,44 @@ int open_l8ang(l8ang_t  *l8ang, intn access_mode)
 		}
 
 		/* view zenith */
-		/* No pan, no cirrus */
-		for (ib = 0; ib < L8NRB-1; ib++) {
-			strcpy(sds_name, L8_VZ[ib]);
-			if ((sds_index = SDnametoindex(l8ang->sd_id, sds_name)) == FAIL) {
-				sprintf(message, "Didn't find the SDS %s in %s", sds_name, l8ang->fname);
-				Error(message);
-				return(ERR_READ);
-			}
-			l8ang->sds_id_vz[ib] = SDselect(l8ang->sd_id, sds_index);
+		/* All bands have the same view zenith and azimuth angle */
+		strcpy(sds_name, L8_VZ);
+		if ((sds_index = SDnametoindex(l8ang->sd_id, sds_name)) == FAIL) {
+			sprintf(message, "Didn't find the SDS %s in %s", sds_name, l8ang->fname);
+			Error(message);
+			return(ERR_READ);
+		}
+		l8ang->sds_id_vz = SDselect(l8ang->sd_id, sds_index);
 
-			if ((l8ang->vz[ib] = (int16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(int16))) == NULL) {
-				fprintf(stderr, "Cannot allocate memory\n");
-				exit(1);
-			}
+		if ((l8ang->vz = (uint16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(uint16))) == NULL) {
+			fprintf(stderr, "Cannot allocate memory\n");
+			exit(1);
+		}
 
-			if (SDreaddata(l8ang->sds_id_vz[ib], start, NULL, edge, l8ang->vz[ib]) == FAIL) {
-				sprintf(message, "Error reading sds %s in %s", sds_name, l8ang->fname);
-				Error(message);
-				return(ERR_READ);
-			}
+		if (SDreaddata(l8ang->sds_id_vz, start, NULL, edge, l8ang->vz) == FAIL) {
+			sprintf(message, "Error reading sds %s in %s", sds_name, l8ang->fname);
+			Error(message);
+			return(ERR_READ);
 		}
 
 		/* view azimuth */
-		/* No pan, no cirrus */
-		for (ib = 0; ib < L8NRB-1; ib++) {
-			strcpy(sds_name, L8_VA[ib]);
-			if ((sds_index = SDnametoindex(l8ang->sd_id, sds_name)) == FAIL) {
-				sprintf(message, "Didn't find the SDS %s in %s", sds_name, l8ang->fname);
-				Error(message);
-				return(ERR_READ);
-			}
-			l8ang->sds_id_va[ib] = SDselect(l8ang->sd_id, sds_index);
+		strcpy(sds_name, L8_VA);
+		if ((sds_index = SDnametoindex(l8ang->sd_id, sds_name)) == FAIL) {
+			sprintf(message, "Didn't find the SDS %s in %s", sds_name, l8ang->fname);
+			Error(message);
+			return(ERR_READ);
+		}
+		l8ang->sds_id_va = SDselect(l8ang->sd_id, sds_index);
 
-			if ((l8ang->va[ib] = (int16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(int16))) == NULL) {
-				fprintf(stderr, "Cannot allocate memory\n");
-				exit(1);
-			}
+		if ((l8ang->va = (uint16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(uint16))) == NULL) {
+			fprintf(stderr, "Cannot allocate memory\n");
+			exit(1);
+		}
 
-			if (SDreaddata(l8ang->sds_id_va[ib], start, NULL, edge, l8ang->va[ib]) == FAIL) {
-				sprintf(message, "Error reading sds %s in %s", sds_name, l8ang->fname);
-				Error(message);
-				return(ERR_READ);
-			}
+		if (SDreaddata(l8ang->sds_id_va, start, NULL, edge, l8ang->va) == FAIL) {
+			sprintf(message, "Error reading sds %s in %s", sds_name, l8ang->fname);
+			Error(message);
+			return(ERR_READ);
 		}
 
 		/* sceneID */
@@ -423,7 +396,7 @@ int open_l8ang(l8ang_t  *l8ang, intn access_mode)
 
 		/* Solar zenith */
 		strcpy(sds_name, L8_SZ);
-		if ((l8ang->sds_id_sz = SDcreate(l8ang->sd_id, sds_name, DFNT_INT16, rank, dimsizes)) == FAIL) { 
+		if ((l8ang->sds_id_sz = SDcreate(l8ang->sd_id, sds_name, DFNT_UINT16, rank, dimsizes)) == FAIL) { 
 			sprintf(message, "Cannot create SDS %s", sds_name);
 			Error(message);
 			return(ERR_CREATE);
@@ -431,17 +404,16 @@ int open_l8ang(l8ang_t  *l8ang, intn access_mode)
 		PutSDSDimInfo(l8ang->sds_id_sz, dimnames[0], 0);
 		PutSDSDimInfo(l8ang->sds_id_sz, dimnames[1], 1);
 		SDsetcompress(l8ang->sds_id_sz, comp_type, &c_info);	
-		if ((l8ang->sz = (int16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(int16))) == NULL) {
+		if ((l8ang->sz = (uint16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(uint16))) == NULL) {
 			fprintf(stderr, "Cannot allocate memory\n");
 			exit(1);
 		}
-		/* Apr 5, 2017: Forgot to initialize */
 		for (k = 0; k < npix; k++) 
-			l8ang->sz[k] = LANDSAT_ANGFILL;
+			l8ang->sz[k] = ANGFILL;
 			
 		/* Solar azimuth */
 		strcpy(sds_name, L8_SA);
-		if ((l8ang->sds_id_sa = SDcreate(l8ang->sd_id, sds_name, DFNT_INT16, rank, dimsizes)) == FAIL) { 
+		if ((l8ang->sds_id_sa = SDcreate(l8ang->sd_id, sds_name, DFNT_UINT16, rank, dimsizes)) == FAIL) { 
 			sprintf(message, "Cannot create SDS %s", sds_name);
 			Error(message);
 			return(ERR_CREATE);
@@ -449,59 +421,52 @@ int open_l8ang(l8ang_t  *l8ang, intn access_mode)
 		PutSDSDimInfo(l8ang->sds_id_sa, dimnames[0], 0);
 		PutSDSDimInfo(l8ang->sds_id_sa, dimnames[1], 1);
 		SDsetcompress(l8ang->sds_id_sa, comp_type, &c_info);	
-		if ((l8ang->sa = (int16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(int16))) == NULL) {
+		if ((l8ang->sa = (uint16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(uint16))) == NULL) {
 			fprintf(stderr, "Cannot allocate memory\n");
 			exit(1);
 		}
 		for (k = 0; k < npix; k++) 
-			l8ang->sa[k] = LANDSAT_ANGFILL;
+			l8ang->sa[k] = ANGFILL;
 
 		/* View zenith and azimuth*/
-		/* No pan, no cirrus */
-		for (ib = 0; ib < L8NRB-1; ib++) {
-			strcpy(sds_name, L8_VZ[ib]);
-			if ((l8ang->sds_id_vz[ib] = SDcreate(l8ang->sd_id, sds_name, DFNT_INT16, rank, dimsizes)) == FAIL) { 
-				sprintf(message, "Cannot create SDS %s", sds_name);
-				Error(message);
-				return(ERR_CREATE);
-			}    
-			PutSDSDimInfo(l8ang->sds_id_vz[ib], dimnames[0], 0);
-			PutSDSDimInfo(l8ang->sds_id_vz[ib], dimnames[1], 1);
-			SDsetcompress(l8ang->sds_id_vz[ib], comp_type, &c_info);	
-			/* SDS attribute not complete. OK */
+		strcpy(sds_name, L8_VZ);
+		if ((l8ang->sds_id_vz = SDcreate(l8ang->sd_id, sds_name, DFNT_UINT16, rank, dimsizes)) == FAIL) { 
+			sprintf(message, "Cannot create SDS %s", sds_name);
+			Error(message);
+			return(ERR_CREATE);
+		}    
+		PutSDSDimInfo(l8ang->sds_id_vz, dimnames[0], 0);
+		PutSDSDimInfo(l8ang->sds_id_vz, dimnames[1], 1);
+		SDsetcompress(l8ang->sds_id_vz, comp_type, &c_info);	
+		/* SDS attribute not complete. OK */
 
-			/* memory */
-			if ((l8ang->vz[ib] = (int16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(int16))) == NULL) {
-				fprintf(stderr, "Cannot allocate memory\n");
-				exit(1);
-			}
-
-			/* Apr 5, 2017: Forgot to initialize */
-			for (k = 0; k < npix; k++) 
-				l8ang->vz[ib][k] = LANDSAT_ANGFILL;
-
-
-			strcpy(sds_name, L8_VA[ib]);
-			if ((l8ang->sds_id_va[ib] = SDcreate(l8ang->sd_id, sds_name, DFNT_INT16, rank, dimsizes)) == FAIL) { 
-				sprintf(message, "Cannot create SDS %s", sds_name);
-				Error(message);
-				return(ERR_CREATE);
-			}    
-			PutSDSDimInfo(l8ang->sds_id_va[ib], dimnames[0], 0);
-			PutSDSDimInfo(l8ang->sds_id_va[ib], dimnames[1], 1);
-			SDsetcompress(l8ang->sds_id_va[ib], comp_type, &c_info);	
-			/* SDS attribute not complete. OK */
-
-			/* memory */
-			if ((l8ang->va[ib] = (int16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(int16))) == NULL) {
-				fprintf(stderr, "Cannot allocate memory\n");
-				exit(1);
-			}
-
-			/* Apr 5, 2017: Forgot to initialize */
-			for (k = 0; k < npix; k++) 
-				l8ang->va[ib][k] = LANDSAT_ANGFILL;
+		/* memory */
+		if ((l8ang->vz = (uint16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(uint16))) == NULL) {
+			fprintf(stderr, "Cannot allocate memory\n");
+			exit(1);
 		}
+		for (k = 0; k < npix; k++) 
+			l8ang->vz[k] = ANGFILL;	// Finally changed to 40,000
+
+
+		strcpy(sds_name, L8_VA);
+		if ((l8ang->sds_id_va = SDcreate(l8ang->sd_id, sds_name, DFNT_UINT16, rank, dimsizes)) == FAIL) { 
+			sprintf(message, "Cannot create SDS %s", sds_name);
+			Error(message);
+			return(ERR_CREATE);
+		}    
+		PutSDSDimInfo(l8ang->sds_id_va, dimnames[0], 0);
+		PutSDSDimInfo(l8ang->sds_id_va, dimnames[1], 1);
+		SDsetcompress(l8ang->sds_id_va, comp_type, &c_info);	
+		/* SDS attribute not complete. OK */
+
+		/* memory */
+		if ((l8ang->va = (uint16*)calloc(l8ang->nrow * l8ang->ncol, sizeof(uint16))) == NULL) {
+			fprintf(stderr, "Cannot allocate memory\n");
+			exit(1);
+		}
+		for (k = 0; k < npix; k++) 
+			l8ang->va[k] = ANGFILL;
 
 
 		l8ang->l1tsceneid[0] = '\0'; 	/* Empty string*/
@@ -563,19 +528,17 @@ int close_l8ang(l8ang_t *l8ang)
 			SDendaccess(l8ang->sds_id_sa);
 
 			/* View zenith and azimuth */
-			for (ib = 0; ib < L8NRB-1; ib++) {
-				if (SDwritedata(l8ang->sds_id_vz[ib], start, NULL, edge, l8ang->vz[ib]) == FAIL) {
-					Error("Error in SDwritedata");
-					return(ERR_CREATE);
-				}
-				SDendaccess(l8ang->sds_id_vz[ib]);
-
-				if (SDwritedata(l8ang->sds_id_va[ib], start, NULL, edge, l8ang->va[ib]) == FAIL) {
-					Error("Error in SDwritedata");
-					return(ERR_CREATE);
-				}
-				SDendaccess(l8ang->sds_id_va[ib]);
+			if (SDwritedata(l8ang->sds_id_vz, start, NULL, edge, l8ang->vz) == FAIL) {
+				Error("Error in SDwritedata");
+				return(ERR_CREATE);
 			}
+			SDendaccess(l8ang->sds_id_vz);
+
+			if (SDwritedata(l8ang->sds_id_va, start, NULL, edge, l8ang->va) == FAIL) {
+				Error("Error in SDwritedata");
+				return(ERR_CREATE);
+			}
+			SDendaccess(l8ang->sds_id_va);
 	
 			/* L1T scene ID */
 			/* When string l8ang->l1tsceneid is not set,  the output file is silently corrupted.  @2:22am, Apr 16, 2016. */
@@ -599,7 +562,6 @@ int close_l8ang(l8ang_t *l8ang)
 						l8ang->ncol, 
 						HLS_PIXSZ,
 						fname_hdr);
-	
 		}
 	}
 
@@ -612,16 +574,14 @@ int close_l8ang(l8ang_t *l8ang)
 		free(l8ang->sa);
 		l8ang->sa = NULL;
 	}
-	for (ib = 0; ib < L8NRB-1; ib++) {
-		if (l8ang->vz[ib] != NULL) {
-			free(l8ang->vz[ib]);
-			l8ang->vz[ib] = NULL;
-		}
+	if (l8ang->vz != NULL) {
+		free(l8ang->vz);
+		l8ang->vz = NULL;
+	}
 
-		if (l8ang->va[ib] != NULL) {
-			free(l8ang->va[ib]);
-			l8ang->va[ib] = NULL;
-		}
+	if (l8ang->va != NULL) {
+		free(l8ang->va);
+		l8ang->va = NULL;
 	}
 	return 0;
 }

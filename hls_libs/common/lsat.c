@@ -401,6 +401,7 @@ int open_lsat(lsat_t *lsat, intn access_mode)
 		PutSDSDimInfo(lsat->sds_id_acmask, dimnames[0], 0);
 		PutSDSDimInfo(lsat->sds_id_acmask, dimnames[1], 1);
 		SDsetcompress(lsat->sds_id_acmask, comp_type, &c_info);	
+		SDsetattr(lsat->sds_id_acmask, "_FillValue", DFNT_UINT8, 1, (VOIDP)&hls_mask_fillval);
 		
 		char attr[3000];
 		/* Note: For better view, the blanks within the string is blank space characters, not tab */
@@ -432,6 +433,7 @@ int open_lsat(lsat_t *lsat, intn access_mode)
 		PutSDSDimInfo(lsat->sds_id_fmask, dimnames[0], 0);
 		PutSDSDimInfo(lsat->sds_id_fmask, dimnames[1], 1);
 		SDsetcompress(lsat->sds_id_fmask, comp_type, &c_info);	
+		SDsetattr(lsat->sds_id_fmask, "_FillValue", DFNT_UINT8, 1, (VOIDP)&hls_mask_fillval);
 
 		/* Note: For better view, the blanks within the string is blank space characters, not tab */
 		sprintf(attr, 	"Bits are listed from the MSB (bit 7) to the LSB (bit 0): \n"
