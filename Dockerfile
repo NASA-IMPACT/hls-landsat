@@ -1,4 +1,5 @@
-FROM 018923174646.dkr.ecr.us-west-2.amazonaws.com/hls-base-c2
+ARG AWS_ACCOUNT_ID
+FROM ${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/hls-base:latest
 ENV PREFIX=/usr/local \
     SRC_DIR=/usr/local/src \
     GCTPLIB=/usr/local/lib \
@@ -13,14 +14,8 @@ ENV PREFIX=/usr/local \
     HDFLINK=" -lmfhdf -ldf -lm" \
 		L8_AUX_DIR=/usr/local/src \
     ECS_ENABLE_TASK_IAM_ROLE=true \
-    ACCODE=LaSRCL8V3.5.5 \
-    PYTHONPATH="${PYTHONPATH}:${PREFIX}/lib/python3.6/site-packages" \
-    ACCODE=LaSRCL8V3.5.5 \
-    LC_ALL=en_US.utf-8 \
-    LANG=en_US.utf-8
-
-# The Python click library requires a set locale
-RUN localedef -i en_US -f UTF-8 en_US.UTF-8
+    PYTHONPATH="${PREFIX}/lib/python2.7/site-packages" \
+    ACCODE=LaSRCL8V3.5.5
 
 # Move common files to source directory
 COPY ./hls_libs/common $SRC_DIR
@@ -34,8 +29,10 @@ RUN cd ${SRC_DIR}/addFmaskSDS \
     && cd $SRC_DIR \
     && rm -rf addFmaskSDS
 
-RUN pip3 install git+https://github.com/NASA-IMPACT/hls-utilities@v1.4
+# RUN pip install --upgrade git+https://github.com/NASA-IMPACT/espa-python-library.git@v1.0-hls
 
+COPY ./python_scripts/* ${PREFIX}/bin/
 COPY ./scripts/* ${PREFIX}/bin/
+
 ENTRYPOINT ["/bin/sh", "-c"]
 CMD ["landsat.sh"]
