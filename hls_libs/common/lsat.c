@@ -401,6 +401,7 @@ int open_lsat(lsat_t *lsat, intn access_mode)
 		PutSDSDimInfo(lsat->sds_id_acmask, dimnames[0], 0);
 		PutSDSDimInfo(lsat->sds_id_acmask, dimnames[1], 1);
 		SDsetcompress(lsat->sds_id_acmask, comp_type, &c_info);	
+		SDsetattr(lsat->sds_id_acmask, "_FillValue", DFNT_UINT8, 1, (VOIDP)&hls_mask_fillval);
 		
 		char attr[3000];
 		/* Note: For better view, the blanks within the string is blank space characters, not tab */
@@ -415,7 +416,7 @@ int open_lsat(lsat_t *lsat, intn access_mode)
 				"3      cloud shadow\n"
 				"2      adjacent to cloud\n"
 				"1      cloud\n"
-				"0      cirrus\n");
+				"0      cirrus cirrus\n");
 		SDsetattr(lsat->sds_id_acmask, "ACmask bit description", DFNT_CHAR8, strlen(attr), (VOIDP)attr);
 		for (irow = 0; irow < lsat->nrow; irow++) {
 			for (icol = 0; icol < lsat->ncol; icol++) 
@@ -432,15 +433,17 @@ int open_lsat(lsat_t *lsat, intn access_mode)
 		PutSDSDimInfo(lsat->sds_id_fmask, dimnames[0], 0);
 		PutSDSDimInfo(lsat->sds_id_fmask, dimnames[1], 1);
 		SDsetcompress(lsat->sds_id_fmask, comp_type, &c_info);	
+		SDsetattr(lsat->sds_id_fmask, "_FillValue", DFNT_UINT8, 1, (VOIDP)&hls_mask_fillval);
 
-		/* Note: For better view, the blanks within the string is blank space characters, not tab */
+		/* Attention! For better view, the blanks within the string is blank space characters, not tab */
 		sprintf(attr, 	"Bits are listed from the MSB (bit 7) to the LSB (bit 0): \n"
 				"7-6    unused\n"
 				"5      water\n"
 				"4      snow/ice\n"
 				"3      cloud shadow\n"
+				"2      adjacent to cloud\n"
 				"1      cloud\n"
-				"0      cirrus\n");
+				"0      cirrus cloud\n");
 		SDsetattr(lsat->sds_id_fmask, "Fmask bit description", DFNT_CHAR8, strlen(attr), (VOIDP)attr);
 		for (irow = 0; irow < lsat->nrow; irow++) {
 			for (icol = 0; icol < lsat->ncol; icol++) 
