@@ -43,7 +43,7 @@ fmaskbin=fmask.bin
 
 echo "Start processing granules"
 
-aws s3 cp "$inputgranule" "$granuledir" --recursive
+aws s3 cp "$inputgranule" "$granuledir" --recursive --request-payer requester
 # LC08_L1TP_009010_20200601_20200608_01_T1
 IFS='_'
 read -ra granulecomponents <<< "$granule"
