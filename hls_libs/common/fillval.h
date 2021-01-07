@@ -10,6 +10,7 @@ static uint8 hls_mask_fillval = 255; 	/* Added on Nov 5, 2020 */
 static unsigned char S2_mask_fillval = 255;
 static float cfactor_fillval = -1000;
 static unsigned char brdfflag_fillval = 0;
+static uint16 angfill = 40000;		/* Gradually get rid of these #define?  */
 
 /* This is the output directly from the AC code; will be replaced with ref_fillval in postprocessing,
  * to be consistent with Landsat.

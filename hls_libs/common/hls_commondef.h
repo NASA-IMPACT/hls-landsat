@@ -6,11 +6,12 @@
 #define HLS_INT16_MIN -32768
 #define HLS_INT16_MAX  32767
 
+/* Dec 3, 2020: These strings are are used as metadata for SDS */
 static char *L8_ref_fillval = "-9999";
 static char *L8_ref_scale_factor = "0.0001";
 static char *L8_ref_add_offset = "0.0";
 
-static char *L8_thm_fillval = "-10000";
+static char *L8_thm_fillval = "-9999";
 static char *L8_thm_scale_factor = "0.01";
 static char *L8_thm_add_offset = "0.0";
 static char *L8_thm_unit = "Celsius";
