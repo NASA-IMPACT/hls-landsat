@@ -1,3 +1,4 @@
+# espa-surface-reflectanc-v3.1.0
 FROM 018923174646.dkr.ecr.us-west-2.amazonaws.com/hls-base-c2
 ENV PREFIX=/usr/local \
     SRC_DIR=/usr/local/src \
@@ -11,7 +12,6 @@ ENV PREFIX=/usr/local \
     GCTPINC=/usr/local/include \
     GCTPLINK="-lGctp -lm" \
     HDFLINK=" -lmfhdf -ldf -lm" \
-		L8_AUX_DIR=/usr/local/src \
     ECS_ENABLE_TASK_IAM_ROLE=true \
     ACCODE=LaSRCL8V3.5.5 \
     PYTHONPATH="${PYTHONPATH}:${PREFIX}/lib/python3.6/site-packages" \
