@@ -1,38 +1,35 @@
-#!/bin/bash
+#/bin/bash
+export OMP_NUM_THREADS=2
 
 # Exit on any error
 set -o errexit
 
 jobid="$AWS_BATCH_JOB_ID"
-# shellcheck disable=2153
 granule="$GRANULE"
 bucket="$OUTPUT_BUCKET"
 inputbucket="$INPUT_BUCKET"
-# shellcheck disable=2153
 prefix="$PREFIX"
 inputgranule="s3://${inputbucket}/${prefix}"
 workingdir="/var/scratch/${jobid}"
 granuledir="${workingdir}/${granule}"
-# shellcheck disable=2153
 debug_bucket="$DEBUG_BUCKET"
-# shellcheck disable=2153
+replace_existing="$REPLACE_EXISTING"
 ACCODE=Lasrc
 
 # Remove tmp files on exit
-# shellcheck disable=2064
 trap "rm -rf $workingdir; exit" INT TERM EXIT
 
 rename_angle_bands () {
   anglebasename=$1
   newbasename=$2
-  mv "${anglebasename}_vaa.hdr" "${newbasename}_VAA.hdr"
-  mv "${anglebasename}_vaa.img" "${newbasename}_VAA.img"
-  mv "${anglebasename}_vza.hdr" "${newbasename}_VZA.hdr"
-  mv "${anglebasename}_vza.img" "${newbasename}_VZA.img"
-  mv "${anglebasename}_saa.hdr" "${newbasename}_SAA.hdr"
-  mv "${anglebasename}_saa.img" "${newbasename}_SAA.img"
-  mv "${anglebasename}_sza.hdr" "${newbasename}_SZA.hdr"
-  mv "${anglebasename}_sza.img" "${newbasename}_SZA.img"
+  mv "${anglebasename}_sensor_azimuth.hdr" "${newbasename}_VAA.hdr"
+  mv "${anglebasename}_sensor_azimuth.img" "${newbasename}_VAA.img"
+  mv "${anglebasename}_sensor_zenith.hdr" "${newbasename}_VZA.hdr"
+  mv "${anglebasename}_sensor_zenith.img" "${newbasename}_VZA.img"
+  mv "${anglebasename}_solar_azimuth.hdr" "${newbasename}_SAA.hdr"
+  mv "${anglebasename}_solar_azimuth.img" "${newbasename}_SAA.img"
+  mv "${anglebasename}_solar_zenith.hdr" "${newbasename}_SZA.hdr"
+  mv "${anglebasename}_solar_zenith.img" "${newbasename}_SZA.img"
 }
 
 # Create workingdir
@@ -52,12 +49,24 @@ year=${date:0:4}
 month=${date:4:2}
 day=${date:6:2}
 pathrow=${granulecomponents[2]}
+
 outputname="${year}-${month}-${day}_${pathrow}"
+
+exit_if_exists () {
+  if [ ! -z "$replace_existing" ]; then
+    # Check if output folder key exists
+    exists=$(aws s3 ls "${bucket_key}/" | wc -l)
+    if [ ! "$exists" = 0 ]; then
+      echo "Output product already exists.  Not replacing"
+      exit 4
+    fi
+  fi
+}
 
 # Check solar zenith angle.
 echo "Check solar azimuth"
 mtl="${granuledir}/${granule}_MTL.txt"
-solar_zenith_valid=$(check_solar_zenith_landsat "$mtl")
+solar_zenith_valid=$(check_solar_zenith.py -i "$mtl")
 if [ "$solar_zenith_valid" == "invalid" ]; then
   echo "Invalid solar zenith angle. Exiting now"
   exit 3
@@ -67,17 +76,16 @@ fi
 cd "$granuledir"
 
 # ovr and IMD files in AWS PDS break Fmask
-# rm *.ovr
-# rm *.IMD
+rm *.ovr
+rm *.IMD
 
 # Run Fmask
-/usr/local/MATLAB/application/run_Fmask_4_3.sh /usr/local/MATLAB/v96
+/usr/local/MATLAB/application/run_Fmask_4_2.sh /usr/local/MATLAB/v96
 
 # Convert to flat binary
 gdal_translate -of ENVI "$fmask" "$fmaskbin"
 
 # Convert data from tiled to scanline for espa formatting
-echo "Convert to scanline"
 for f in *.TIF
   do
   gdal_translate -co TILED=NO "$f" "${f}_scan.tif"
@@ -91,27 +99,21 @@ srhdf="sr.hdf"
 outputhdf="${outputname}.hdf"
 
 # Convert to espa format
-echo "Convert to ESPA"
 convert_lpgs_to_espa --mtl="$mtl"
 
 # Run lasrc
-echo "Run lasrc"
 do_lasrc_landsat.py --xml "$espa_xml"
 
 # Rename Angle bands to align with Collection 2 naming.
-echo "Rename angle bands"
-rename_angle_bands "${granule}" "$outputname"
+rename_angle_bands "${granule}_b4" "$outputname"
 
 # Create ESPA xml file using HLS v1.5 band names
-echo "Create updated espa xml"
-create_landsat_sr_hdf_xml "$espa_xml" "$hls_espa_xml"
+alter_sr_band_names.py -i "$espa_xml" -o "$hls_espa_xml"
 
 # Convert ESPA xml file to HDF
-echo "Convert to HDF"
 convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 
 # Run addFmaskSDS
-echo "Run addFmaskSDS"
 addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "$ACCODE" "$outputhdf"
 
 if [ -z "$debug_bucket" ]; then
