@@ -1,5 +1,4 @@
-ARG AWS_ACCOUNT_ID
-FROM ${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/hls-base:latest
+FROM 018923174646.dkr.ecr.us-west-2.amazonaws.com/hls-base-c2:v3.0.5
 ENV PREFIX=/usr/local \
     SRC_DIR=/usr/local/src \
     GCTPLIB=/usr/local/lib \
@@ -12,7 +11,6 @@ ENV PREFIX=/usr/local \
     GCTPINC=/usr/local/include \
     GCTPLINK="-lGctp -lm" \
     HDFLINK=" -lmfhdf -ldf -lm" \
-		L8_AUX_DIR=/usr/local/src \
     ECS_ENABLE_TASK_IAM_ROLE=true \
     PYTHONPATH="${PREFIX}/lib/python2.7/site-packages" \
     ACCODE=LaSRCL8V3.5.5
