@@ -3,13 +3,20 @@ This repository contains the Dockerfiles for running the HLS landsat granule cod
 
 The `hls-landsat` image uses [hls-base](https://github.com/NASA-IMPACT/hls-base/) as base image.
 
-### Development
-You will require an AWS profile which has ECR pull permissions for the base image.
+After building your base dependencies image and pushing it to ECR you can build the `hls-landsat` processing image with:
+
 ```shell
-$ docker build --no-cache -t hls-landsat.
+$ docker build --no-cache --build-arg AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID}" -t hls-landsat .
 ```
 
-### CI
-The repository contains two CI workflows. When commits are pushed to the dev branch a new image is built and pushed to ECR with no tag.
+Note: The command above assumes you have exported an environment variable `AWS_ACCOUNT_ID` which references the AWS account where the hls-base reference image is stored.
 
-When a new release is created from master a new image is built and pushed to ECR with the release version as a tag.
+You can then tag this `hls-landsat` image as `<AWS_ACCOUNT_ID>.dkr.ecr.us-west-2.amazonaws.com/hls-landsat` and push it to ECR.
+
+```shell
+$ docker tag hls-landsat "${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/hls-landsat"
+```
+
+```shell
+$ docker push "${AWS_ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com/hls-landsat"
+```
