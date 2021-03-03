@@ -43,8 +43,13 @@ fmaskbin=fmask.bin
 
 echo "Start processing granules"
 
-aws s3 cp "$inputgranule" "$granuledir" --recursive --request-payer requester
-# LC08_L1TP_009010_20200601_20200608_01_T1
+# RT granules can be removed from bucket before processing, use T1 instead.
+rt_exists=$(aws s3 cp "$inputgranule" "$granuledir" --recursive --request-payer requester)
+if [ -z "$rt_exists" ]; then
+  granule="${granule:0:-2}T1"
+  inputgranule="${inputgranule:0:-2}T1"
+fi
+
 IFS='_'
 read -ra granulecomponents <<< "$granule"
 date=${granulecomponents[3]:0:8}
