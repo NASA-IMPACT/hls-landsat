@@ -101,7 +101,7 @@ convert_lpgs_to_espa --mtl="$mtl"
 
 # Run lasrc
 echo "Run lasrc"
-do_lasrc_landsat.py --xml "$espa_xml"
+do_lasrc_landsat.py --xml "$espa_xml" --write_toa --use_orig_aero_alg
 
 # Rename Angle bands to align with Collection 2 naming.
 echo "Rename angle bands"
@@ -120,7 +120,7 @@ echo "Run addFmaskSDS"
 addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "$ACCODE" "$outputhdf"
 
 if [ -z "$debug_bucket" ]; then
-  aws s3 cp "${outputhdf}" "s3://${bucket}/${outputname}.hdf" 
+  aws s3 cp "${outputhdf}" "s3://${bucket}/${outputname}.hdf"
   aws s3 cp "$granuledir" "s3://${bucket}" --exclude "*" --include "*_VAA.img" \
     --include "*_VAA.hdr" --include "*_VZA.hdr" --include "*_VZA.img" \
     --include "*_SAA.hdr" --include "*_SAA.img" --include "*_SZA.hdr" \
