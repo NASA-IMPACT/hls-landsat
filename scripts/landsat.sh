@@ -102,7 +102,7 @@ convert_lpgs_to_espa --mtl="$mtl"
 
 # Run lasrc
 echo "Run lasrc"
-do_lasrc_landsat.py --xml "$espa_xml" --write_toa --use_orig_aero_alg
+do_lasrc_landsat.py --xml "$espa_xml"
 
 # Rename Angle bands to align with Collection 2 naming.
 echo "Rename angle bands"
