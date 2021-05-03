@@ -48,7 +48,6 @@ rt_exists=$(aws s3 cp "$inputgranule" "$granuledir" --recursive --request-payer 
 if [ -z "$rt_exists" ]; then
   granule="${granule:0:-2}T1"
   inputgranule="${inputgranule:0:-2}T1"
-  granuledir="${workingdir}/${granule}"
 fi
 
 IFS='_'
@@ -126,9 +125,11 @@ if [ -z "$debug_bucket" ]; then
   aws s3 cp "$granuledir" "s3://${bucket}" --exclude "*" --include "*_VAA.img" \
     --include "*_VAA.hdr" --include "*_VZA.hdr" --include "*_VZA.img" \
     --include "*_SAA.hdr" --include "*_SAA.img" --include "*_SZA.hdr" \
-    --include "*_SZA.img" --recursive
+    --include "*_SZA.img" --recursive --quiet
 else
   # Copy all intermediate files to debug bucket.
-  debug_bucket_key=s3://${debug_bucket}/${granule}
-  aws s3 cp "$granuledir" "$debug_bucket_key" --recursive
+  timestamp=$(date +'%Y_%m_%d_%H_%M')
+  debug_bucket_key=s3://${debug_bucket}/${granule}_${timestamp}
+  aws s3 cp "$granuledir" "$debug_bucket_key" --recursive --quiet
+  aws s3 cp "${outputhdf}" "s3://${debug_bucket_key}/${outputname}.hdf" --quiet
 fi
