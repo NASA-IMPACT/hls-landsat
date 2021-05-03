@@ -43,6 +43,9 @@ fmaskbin=fmask.bin
 
 echo "Start processing granules"
 
+echo "Copying granule from USGS S3"
+aws s3 cp "$inputgranule" "$granuledir" --recursive --request-payer requester
+
 IFS='_'
 read -ra granulecomponents <<< "$granule"
 date=${granulecomponents[3]:0:8}
