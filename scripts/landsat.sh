@@ -117,7 +117,8 @@ convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 
 # Run addFmaskSDS
 echo "Run addFmaskSDS"
-addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "$ACCODE" "$outputhdf"
+aerosol_qa="${granuledir}/${granule}_sr_aerosol.IMG"
+addFmaskSDS "$srhdf" "$fmaskbin" "$aerosol_qa" "$mtl" "$ACCODE" "$outputhdf"
 
 if [ -z "$debug_bucket" ]; then
   aws s3 cp "${outputhdf}" "s3://${bucket}/${outputname}.hdf"
