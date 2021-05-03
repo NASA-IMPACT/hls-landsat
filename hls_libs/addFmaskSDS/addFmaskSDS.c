@@ -1,14 +1,15 @@
 /* Purpose:
- * 1. Add Fmask as an  SDS, and dilate cloud and cloud shadow by 5 pixels.
- * 2. Fortran LaSRC creates a CLOUD band and also passes through the
+ * 1. Add Fmask as an SDS, and dilate cloud and cloud shadow by 5 pixels.
+ * 2. Incorporate the 2 bits of aerosol level into bits 6-7 of Fmask.
+ * 3. Fortran LaSRC creates a CLOUD band and also passes through the
  *    L1T bandQA. Rename the first as ACmask and ignore the second. It is done in 
  *    lsat.c which is called by this code.
- * 3. Add metadata from MTL.
- * 4. Change the USGS LaSRC reflectance scaling factor and offset to the HLS 10000 and 0 respectively.
- * 4. Change the USGS LaSRC temperature scaling factor and offset to the HLS 100 and 0 respectively.
- * 5. Change temperature from Kelvin to Celsius.   
- * 6. Change the USGS fillvalue 0 to HLS -9999.
- * 7. The most challenging  part is: change the USGS uint16 to int16 numbers. 
+ * 4. Add metadata from MTL.
+ * 5. Change the USGS LaSRC reflectance scaling factor and offset to the HLS 10000 and 0 respectively.
+ * 6. Change the USGS LaSRC temperature scaling factor and offset to the HLS 100 and 0 respectively.
+ * 7. Change temperature from Kelvin to Celsius.   
+ * 8. Change the USGS fillvalue 0 to HLS -9999.
+ * 9. The most challenging  part is: change the USGS uint16 to int16 numbers. 
  *    The HLS function is created to read the Fortran LaSRC output of int16, but the C LaSRC  output is
  *    uint16. The trick is: When uint16 data is read into int16 variable,  overflow may happen but the
  *    original bits are preserved; so simply cast the number back to uint16 one by one.
@@ -17,6 +18,7 @@
  *       change the SDS names to HLS convention.
  *
  * Oct 27, 2020. Revised for the new USGS LaSRC.
+ * Apr 12, 2021. Incorporate the 2 bits of aerosol level into Fmask bits 6-7.
  */
 
 #include <stdlib.h>
@@ -29,13 +31,14 @@
 #include "error.h"
 #include "dilation.h"
 
-/* Rename CLOUD as ACmask and reshuffle its bits, add Fmask */
-int copyref_addmask(lsat_t *lsatin, char *fname_fmask, lsat_t *lsstout);
+/* Rename CLOUD as ACmask and reshuffle its bits, add Fmask and incorporate the aerosol level bits into Fmask */
+int copyref_addmask(lsat_t *lsatin, char *fname_fmask, char *fname_aeroQA, lsat_t *lsatout);
 
 int main(int argc, char *argv[])
 {
 	char fname_in[LINELEN];		/* AC output intact. */
 	char fname_fmask[LINELEN];	/* Fmask plain binary */
+	char fname_aeroQA[LINELEN];	/* Aerosol QA from USGS LaSRC*/
 	char fname_mtl[LINELEN];	/* mtl */
 	char accodename[LINELEN];	/* Atmospheric correction code name; to be added as hdf attribute */
 	char fname_out[LINELEN];	/* Output */
@@ -45,16 +48,17 @@ int main(int argc, char *argv[])
 
 	int ret;
 
-	if (argc != 6) {
-		fprintf(stderr, "%s lsat_in fmask mtl accodename lsat_out\n", argv[0]);
+	if (argc != 7) {
+		fprintf(stderr, "%s lsat_in fmask aeroQA mtl accodename lsat_out\n", argv[0]);
 		exit(1);
 	}
 
 	strcpy(fname_in,    argv[1]);
 	strcpy(fname_fmask, argv[2]);
-	strcpy(fname_mtl,   argv[3]);
-	strcpy(accodename,  argv[4]);
-	strcpy(fname_out,   argv[5]);
+	strcpy(fname_aeroQA, argv[3]);
+	strcpy(fname_mtl,   argv[4]);
+	strcpy(accodename,  argv[5]);
+	strcpy(fname_out,   argv[6]);
 
 	/*** Read the input ***/
 	strcpy(lsatin.fname, fname_in);
@@ -80,7 +84,7 @@ int main(int argc, char *argv[])
 					 * But be sure to set to 1 so that file of scenes will not be deleted. */
 
 	/* ACmask and Fmask */ 
-	copyref_addmask(&lsatin, fname_fmask, &lsatout);
+	copyref_addmask(&lsatin, fname_fmask, fname_aeroQA, &lsatout);
 
 	/* Add metadata from MTL; also ulx, uly and zonehem are set */
 	ret = set_input_metadata(&lsatout, fname_mtl);
@@ -110,9 +114,11 @@ int main(int argc, char *argv[])
 }
 
 
-/* Change the original uint16 to int16 during scale change, change Kelvin to Celsius. Add Fmask */
-/* Oct 27, 2020 */
-int copyref_addmask(lsat_t *lsatin, char *fname_fmask, lsat_t *lsatout)
+/* Rename CLOUD as ACmask and reshuffle its bits, add Fmask and incorporate the aerosol level bits into Fmask.
+ * Change the original uint16 to int16 during scale change, change Kelvin to Celsius. */
+/* Oct 27, 2020
+ * Apr 12, 2021 */
+int copyref_addmask(lsat_t *lsatin, char *fname_fmask, char *fname_aeroQA, lsat_t *lsatout)
 {	
 	int ib, k, npix;
 	unsigned char mask, val;
@@ -233,6 +239,26 @@ int copyref_addmask(lsat_t *lsatin, char *fname_fmask, lsat_t *lsatout)
 	}
 	fclose(ffmask);
 
+	/* Read the aerosol QA */
+	unsigned char *aeroQA, aero;
+	FILE *faeroQA;
+
+	if ((aeroQA = (uint8*)calloc(npix, sizeof(uint8))) == NULL) {
+		Error("Cannot allocate memory\n");
+		return(1);
+	}
+	if ((faeroQA = fopen(fname_aeroQA, "r")) == NULL) {
+		sprintf(message, "Cannot read aerosol QA %s\n", fname_aeroQA);
+		Error(message);
+		return(1);
+	}
+	if (fread(aeroQA, sizeof(uint8), npix, faeroQA) !=  npix ) {
+		sprintf(message, "Aerosol QA file size wrong: %s\n", fname_aeroQA);
+		Error(message);
+		return(1);
+	}
+	fclose(faeroQA);
+
 	/* Dilate by 5 pixels (i.e., 150m. Effectively the same on the Sentinel-2 side, 7 pixels of 20m). */
 	dilate(fmask, lsatin->nrow, lsatin->ncol, 5);
 
@@ -252,7 +278,7 @@ int copyref_addmask(lsat_t *lsatin, char *fname_fmask, lsat_t *lsatout)
 
 		switch(fmask[k])
 		{
-			case 254: 	/* Dilated cloud or cloud shadow */
+			case 254: 	/* Dilated cloud or cloud shadow. Now becomes "adjacent to cloud" */
 				val = 1;
 				mask = (val << 2);
 				break;
@@ -285,6 +311,12 @@ int copyref_addmask(lsat_t *lsatin, char *fname_fmask, lsat_t *lsatout)
 				Error(message);
 				exit(1);
 		}
+
+		/* Aerosol level */
+		aero = (aeroQA[k] >> 6) & 03;
+		mask = ((aero << 6) | mask);
+
+		/* final */
 		lsatout->fmask[k] = mask;
 	}
 
