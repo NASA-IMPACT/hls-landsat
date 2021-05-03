@@ -48,6 +48,7 @@ rt_exists=$(aws s3 cp "$inputgranule" "$granuledir" --recursive --request-payer 
 if [ -z "$rt_exists" ]; then
   granule="${granule:0:-2}T1"
   inputgranule="${inputgranule:0:-2}T1"
+  granuledir="${workingdir}/${granule}"
 fi
 
 IFS='_'
