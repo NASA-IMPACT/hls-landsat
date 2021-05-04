@@ -114,7 +114,6 @@ convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 # Run addFmaskSDS
 echo "Run addFmaskSDS"
 aerosol_qa="${granule}_sr_aerosol.img"
-echo "$aerosol_qa"
 addFmaskSDS "$srhdf" "$fmaskbin" "$aerosol_qa" "$mtl" "$ACCODE" "$outputhdf"
 
 if [ -z "$debug_bucket" ]; then
@@ -125,8 +124,8 @@ if [ -z "$debug_bucket" ]; then
     --include "*_SZA.img" --recursive --quiet
 else
   # Copy all intermediate files to debug bucket.
+  echo "Copy files to debug bucket"
   timestamp=$(date +'%Y_%m_%d_%H_%M')
   debug_bucket_key=s3://${debug_bucket}/${granule}_${timestamp}
   aws s3 cp "$granuledir" "$debug_bucket_key" --recursive --quiet
-  aws s3 cp "${outputhdf}" "s3://${debug_bucket_key}/${outputname}.hdf" --quiet
 fi
