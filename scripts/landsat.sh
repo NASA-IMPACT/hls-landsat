@@ -43,7 +43,7 @@ fmaskbin=fmask.bin
 echo "Start processing granules"
 
 echo "Copying granule from USGS S3"
-download_landsat "$inputbucket" "$prefix" ./
+download_landsat "$inputbucket" "$prefix" "$granuledir"
 
 IFS='_'
 read -ra granulecomponents <<< "$granule"
