@@ -10,7 +10,6 @@ bucket="$OUTPUT_BUCKET"
 inputbucket="$INPUT_BUCKET"
 # shellcheck disable=2153
 prefix="$PREFIX"
-inputgranule="s3://${inputbucket}/${prefix}"
 workingdir="/var/scratch/${jobid}"
 granuledir="${workingdir}/${granule}"
 # shellcheck disable=2153
@@ -44,7 +43,7 @@ fmaskbin=fmask.bin
 echo "Start processing granules"
 
 echo "Copying granule from USGS S3"
-aws s3 cp "$inputgranule" "$granuledir" --recursive --request-payer requester
+download_landsat "$inputbucket" "$prefix" ./
 
 IFS='_'
 read -ra granulecomponents <<< "$granule"
