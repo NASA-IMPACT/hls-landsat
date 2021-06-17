@@ -1,4 +1,3 @@
-# espa-surface-reflectance-v3.0.5
 FROM 018923174646.dkr.ecr.us-west-2.amazonaws.com/hls-base-c2:v3.0.5
 ENV PREFIX=/usr/local \
     SRC_DIR=/usr/local/src \
@@ -34,7 +33,7 @@ RUN cd ${SRC_DIR}/addFmaskSDS \
     && cd $SRC_DIR \
     && rm -rf addFmaskSDS
 
-RUN pip3 install git+https://github.com/NASA-IMPACT/hls-utilities@v1.4
+RUN pip3 install git+https://github.com/NASA-IMPACT/hls-utilities@v1.6
 
 COPY ./scripts/* ${PREFIX}/bin/
 ENTRYPOINT ["/bin/sh", "-c"]

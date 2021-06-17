@@ -10,7 +10,6 @@ bucket="$OUTPUT_BUCKET"
 inputbucket="$INPUT_BUCKET"
 # shellcheck disable=2153
 prefix="$PREFIX"
-inputgranule="s3://${inputbucket}/${prefix}"
 workingdir="/var/scratch/${jobid}"
 granuledir="${workingdir}/${granule}"
 # shellcheck disable=2153
@@ -43,8 +42,9 @@ fmaskbin=fmask.bin
 
 echo "Start processing granules"
 
-aws s3 cp "$inputgranule" "$granuledir" --recursive --request-payer requester
-# LC08_L1TP_009010_20200601_20200608_01_T1
+echo "Copying granule from USGS S3"
+download_landsat "$inputbucket" "$prefix" "$granuledir"
+
 IFS='_'
 read -ra granulecomponents <<< "$granule"
 date=${granulecomponents[3]:0:8}
@@ -112,16 +112,19 @@ convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 
 # Run addFmaskSDS
 echo "Run addFmaskSDS"
-addFmaskSDS "$srhdf" "$fmaskbin" "$mtl" "$ACCODE" "$outputhdf"
+aerosol_qa="${granule}_sr_aerosol.img"
+addFmaskSDS "$srhdf" "$fmaskbin" "$aerosol_qa" "$mtl" "$ACCODE" "$outputhdf"
 
 if [ -z "$debug_bucket" ]; then
-  aws s3 cp "${outputhdf}" "s3://${bucket}/${outputname}.hdf" 
+  aws s3 cp "${outputhdf}" "s3://${bucket}/${outputname}.hdf"
   aws s3 cp "$granuledir" "s3://${bucket}" --exclude "*" --include "*_VAA.img" \
     --include "*_VAA.hdr" --include "*_VZA.hdr" --include "*_VZA.img" \
     --include "*_SAA.hdr" --include "*_SAA.img" --include "*_SZA.hdr" \
-    --include "*_SZA.img" --recursive
+    --include "*_SZA.img" --recursive --quiet
 else
   # Copy all intermediate files to debug bucket.
-  debug_bucket_key=s3://${debug_bucket}/${granule}
-  aws s3 cp "$granuledir" "$debug_bucket_key" --recursive
+  echo "Copy files to debug bucket"
+  timestamp=$(date +'%Y_%m_%d_%H_%M')
+  debug_bucket_key=s3://${debug_bucket}/${granule}_${timestamp}
+  aws s3 cp "$granuledir" "$debug_bucket_key" --recursive --quiet
 fi
