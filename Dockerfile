@@ -1,4 +1,4 @@
-FROM 018923174646.dkr.ecr.us-west-2.amazonaws.com/hls-base-3.0.5
+FROM 018923174646.dkr.ecr.us-west-2.amazonaws.com/hls-base-c2:v3.0.5
 ENV PREFIX=/usr/local \
     SRC_DIR=/usr/local/src \
     GCTPLIB=/usr/local/lib \
@@ -12,7 +12,7 @@ ENV PREFIX=/usr/local \
     GCTPLINK="-lGctp -lm" \
     HDFLINK=" -lmfhdf -ldf -lm" \
     ECS_ENABLE_TASK_IAM_ROLE=true \
-    ACCODE=LaSRCL8V3.5.5 \
+    ACCODE=LaSRCL8V3.0.5 \
     PYTHONPATH="${PYTHONPATH}:${PREFIX}/lib/python3.6/site-packages" \
     ACCODE=LaSRCL8V3.5.5 \
     LC_ALL=en_US.utf-8 \
