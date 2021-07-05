@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Build image
-        run: docker build . --tag hls-landsat
+        run: docker build . --tag hls-landsat-c2
 
       - name: Push to prod ECR
         id: push-prod-ecr
@@ -34,5 +34,5 @@ jobs:
           access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           region: us-west-2
-          local-image: hls-landsat
+          local-image: hls-landsat-c2
           image: hls-landsat-c2:${GITHUB_REF##*/}

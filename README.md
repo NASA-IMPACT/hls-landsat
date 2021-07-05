@@ -6,7 +6,7 @@ The `hls-landsat` image uses [hls-base](https://github.com/NASA-IMPACT/hls-base/
 ### Development
 You will require an AWS profile which has ECR pull permissions for the base image.
 ```shell
-$ docker build --no-cache -t hls-landsat.
+$ docker build --no-cache -t hls-landsat-c2.
 ```
 
 ### CI
