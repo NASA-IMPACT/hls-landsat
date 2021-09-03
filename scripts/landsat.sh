@@ -53,6 +53,8 @@ month=${date:4:2}
 day=${date:6:2}
 pathrow=${granulecomponents[2]}
 outputname="${year}-${month}-${day}_${pathrow}"
+bucket_key="${bucket}/${year}-${month}-${day}/${pathrow}"
+
 
 # Check solar zenith angle.
 echo "Check solar azimuth"
@@ -116,8 +118,8 @@ aerosol_qa="${granule}_sr_aerosol.img"
 addFmaskSDS "$srhdf" "$fmaskbin" "$aerosol_qa" "$mtl" "$ACCODE" "$outputhdf"
 
 if [ -z "$debug_bucket" ]; then
-  aws s3 cp "${outputhdf}" "s3://${bucket}/${outputname}.hdf"
-  aws s3 cp "$granuledir" "s3://${bucket}" --exclude "*" --include "*_VAA.img" \
+  aws s3 cp "${outputhdf}" "s3://${bucket_key}/${outputname}.hdf"
+  aws s3 cp "$granuledir" "s3://${bucket_key}" --exclude "*" --include "*_VAA.img" \
     --include "*_VAA.hdr" --include "*_VZA.hdr" --include "*_VZA.img" \
     --include "*_SAA.hdr" --include "*_SAA.img" --include "*_SZA.hdr" \
     --include "*_SZA.img" --recursive --quiet
