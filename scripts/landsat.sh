@@ -37,13 +37,14 @@ rename_angle_bands () {
 # Create workingdir
 mkdir -p "$granuledir"
 
-fmask="${granule}_Fmask4.tif"
-fmaskbin=fmask.bin
 
 echo "Start processing granules"
 
 echo "Copying granule from USGS S3"
-download_landsat "$inputbucket" "$prefix" "$granuledir"
+granule=$(download_landsat "$inputbucket" "$prefix" "$granuledir")
+
+fmask="${granule}_Fmask4.tif"
+fmaskbin=fmask.bin
 
 IFS='_'
 read -ra granulecomponents <<< "$granule"
