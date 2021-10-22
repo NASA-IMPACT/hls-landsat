@@ -33,7 +33,7 @@ RUN cd ${SRC_DIR}/addFmaskSDS \
     && cd $SRC_DIR \
     && rm -rf addFmaskSDS
 
-RUN pip3 install git+https://github.com/NASA-IMPACT/hls-utilities@v1.6
+RUN pip3 install git+https://github.com/NASA-IMPACT/hls-utilities@v1.7
 
 COPY ./scripts/* ${PREFIX}/bin/
 ENTRYPOINT ["/bin/sh", "-c"]
