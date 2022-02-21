@@ -74,7 +74,7 @@ cd "$granuledir"
 # rm *.IMD
 
 # Run Fmask
-/usr/local/MATLAB/application/run_Fmask_4_4.sh /usr/local/MATLAB/v910
+run_Fmask.sh >> fmask_out.txt
 
 # Convert to flat binary
 gdal_translate -of ENVI "$fmask" "$fmaskbin"
