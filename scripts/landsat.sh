@@ -24,14 +24,14 @@ trap "rm -rf $workingdir; exit" INT TERM EXIT
 rename_angle_bands () {
   anglebasename=$1
   newbasename=$2
-  mv "${anglebasename}_vaa.hdr" "${newbasename}_VAA.hdr"
-  mv "${anglebasename}_vaa.img" "${newbasename}_VAA.img"
-  mv "${anglebasename}_vza.hdr" "${newbasename}_VZA.hdr"
-  mv "${anglebasename}_vza.img" "${newbasename}_VZA.img"
-  mv "${anglebasename}_saa.hdr" "${newbasename}_SAA.hdr"
-  mv "${anglebasename}_saa.img" "${newbasename}_SAA.img"
-  mv "${anglebasename}_sza.hdr" "${newbasename}_SZA.hdr"
-  mv "${anglebasename}_sza.img" "${newbasename}_SZA.img"
+  mv "${anglebasename}_VAA.hdr" "${newbasename}_VAA.hdr"
+  mv "${anglebasename}_VAA.img" "${newbasename}_VAA.img"
+  mv "${anglebasename}_VZA.hdr" "${newbasename}_VZA.hdr"
+  mv "${anglebasename}_VZA.img" "${newbasename}_VZA.img"
+  mv "${anglebasename}_SAA.hdr" "${newbasename}_SAA.hdr"
+  mv "${anglebasename}_SAA.img" "${newbasename}_SAA.img"
+  mv "${anglebasename}_SZA.hdr" "${newbasename}_SZA.hdr"
+  mv "${anglebasename}_SZA.img" "${newbasename}_SZA.img"
 }
 
 # Create workingdir
@@ -74,7 +74,7 @@ cd "$granuledir"
 # rm *.IMD
 
 # Run Fmask
-/usr/local/MATLAB/application/run_Fmask_4_3.sh /usr/local/MATLAB/v96
+run_Fmask.sh >> fmask_out.txt
 
 # Convert to flat binary
 gdal_translate -of ENVI "$fmask" "$fmaskbin"

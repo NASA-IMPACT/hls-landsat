@@ -12,7 +12,7 @@ ENV PREFIX=/usr/local \
     GCTPLINK="-lGctp -lm" \
     HDFLINK=" -lmfhdf -ldf -lm" \
     ECS_ENABLE_TASK_IAM_ROLE=true \
-    ACCODE=LaSRCL8V3.0.5 \
+    ACCODE=LaSRCL8V3.2.0 \
     PYTHONPATH="${PYTHONPATH}:${PREFIX}/lib/python3.6/site-packages" \
     ACCODE=LaSRCL8V3.5.5 \
     LC_ALL=en_US.utf-8 \
@@ -33,7 +33,7 @@ RUN cd ${SRC_DIR}/addFmaskSDS \
     && cd $SRC_DIR \
     && rm -rf addFmaskSDS
 
-RUN pip3 install git+https://github.com/NASA-IMPACT/hls-utilities@v1.7
+RUN pip3 install git+https://github.com/NASA-IMPACT/hls-utilities@v1.8
 
 COPY ./scripts/* ${PREFIX}/bin/
 ENTRYPOINT ["/bin/sh", "-c"]
