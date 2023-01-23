@@ -1,15 +1,12 @@
-name: build
+name: build_push_release_ecr
+
 on:
-  push:
-    branches:
-      - '*'         # matches every branch that doesn't contain a '/'
-      - '*/*'       # matches every branch containing a single '/'
-      - '**'        # matches every branch
-      - '!master'   # excludes master
-      - '!dev'   # excludes master
+  release:
+    branches: [ master ]
+    types: [ published ]
 
 jobs:
-  build:
+  build_push_to_prod_ecr:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,9 +24,15 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
 
-      # Lint shell scripts
-      - name: ShellCheck
-        uses: ludeeus/action-shellcheck@master
-
       - name: Build image
         run: docker build . --tag hls-landsat-c2
+
+      - name: Push to prod ECR
+        id: push-prod-ecr
+        uses: jwalton/gh-ecr-push@v1
+        with:
+          access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          region: us-west-2
+          local-image: hls-landsat-c2
+          image: hls-landsat-c2:${GITHUB_REF##*/}
