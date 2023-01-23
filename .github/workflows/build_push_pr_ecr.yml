@@ -1,7 +1,8 @@
-name: build_push_to_ecr
+name: build_push_pr_ecr
 
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
     branches: [ dev ]
 
 jobs:
@@ -22,7 +23,7 @@ jobs:
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-      
+
       # Lint shell scripts
       - name: ShellCheck
         uses: ludeeus/action-shellcheck@master
@@ -38,4 +39,4 @@ jobs:
           secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           region: us-west-2
           local-image: hls-landsat-c2
-          image: hls-landsat-c2
+          image: hls-landsat-c2:${{ github.event.pull_request.number }}
