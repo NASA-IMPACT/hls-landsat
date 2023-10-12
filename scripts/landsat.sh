@@ -115,7 +115,7 @@ convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 
 # Run addFmaskSDS
 echo "Run addFmaskSDS"
-aerosol_qa="${granule}_sr_aerosol.img"
+aerosol_qa="${granule}_sr_aerosol_qa.img"
 addFmaskSDS "$srhdf" "$fmaskbin" "$aerosol_qa" "$mtl" "$ACCODE" "$outputhdf"
 
 if [ -z "$debug_bucket" ]; then
