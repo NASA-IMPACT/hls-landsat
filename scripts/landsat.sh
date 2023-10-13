@@ -15,7 +15,7 @@ granuledir="${workingdir}/${granule}"
 # shellcheck disable=2153
 debug_bucket="$DEBUG_BUCKET"
 # shellcheck disable=2153
-# ACCODE=Lasrc
+ACCODE=Lasrc
 
 # Remove tmp files on exit
 # shellcheck disable=2064
@@ -117,7 +117,7 @@ convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 echo "Run addFmaskSDS"
 aerosol_qa="${granule}_sr_aerosol_qa.img"
 echo "$aerosol_qa"
-# addFmaskSDS "$srhdf" "$fmaskbin" "$aerosol_qa" "$mtl" "$ACCODE" "$outputhdf"
+addFmaskSDS "$srhdf" "$fmaskbin" "$aerosol_qa" "$mtl" "$ACCODE" "$outputhdf"
 
 if [ -z "$debug_bucket" ]; then
   aws s3 cp "${outputhdf}" "s3://${bucket_key}/${outputname}.hdf"
