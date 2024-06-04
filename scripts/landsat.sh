@@ -13,8 +13,6 @@ prefix="$PREFIX"
 workingdir="/var/scratch/${jobid}"
 granuledir="${workingdir}/${granule}"
 # shellcheck disable=2153
-debug_bucket="$DEBUG_BUCKET"
-# shellcheck disable=2153
 ACCODE=Lasrc
 
 # Remove tmp files on exit
@@ -115,16 +113,17 @@ convert_espa_to_hdf --xml="$hls_espa_xml" --hdf="$srhdf"
 
 # Run addFmaskSDS
 echo "Run addFmaskSDS"
-aerosol_qa="${granule}_sr_aerosol.img"
+aerosol_qa="${granule}_sr_aerosol_qa.img"
 addFmaskSDS "$srhdf" "$fmaskbin" "$aerosol_qa" "$mtl" "$ACCODE" "$outputhdf"
 
-if [ -z "$debug_bucket" ]; then
+if [[ -z "$DEBUG_BUCKET" ]]; then
   aws s3 cp "${outputhdf}" "s3://${bucket_key}/${outputname}.hdf"
   aws s3 cp "$granuledir" "s3://${bucket_key}" --exclude "*" --include "*_VAA.img" \
     --include "*_VAA.hdr" --include "*_VZA.hdr" --include "*_VZA.img" \
     --include "*_SAA.hdr" --include "*_SAA.img" --include "*_SZA.hdr" \
     --include "*_SZA.img" --recursive --quiet
 else
+  debug_bucket="$DEBUG_BUCKET"
   # Copy all intermediate files to debug bucket.
   echo "Copy files to debug bucket"
   timestamp=$(date +'%Y_%m_%d_%H_%M')
