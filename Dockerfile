@@ -12,9 +12,8 @@ ENV PREFIX=/usr/local \
     GCTPLINK="-lGctp -lm" \
     HDFLINK=" -lmfhdf -ldf -lm" \
     ECS_ENABLE_TASK_IAM_ROLE=true \
-    ACCODE=LaSRCL8V3.2.0 \
     PYTHONPATH="${PYTHONPATH}:${PREFIX}/lib/python3.6/site-packages" \
-    ACCODE=LaSRCL8V3.5.5 \
+    ACCODE=LaSRCL8V3.5.1 \
     LC_ALL=en_US.utf-8 \
     LANG=en_US.utf-8
 
