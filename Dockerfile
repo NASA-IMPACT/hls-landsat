@@ -13,7 +13,7 @@ ENV PREFIX=/usr/local \
     HDFLINK=" -lmfhdf -ldf -lm" \
     ECS_ENABLE_TASK_IAM_ROLE=true \
     PYTHONPATH="${PYTHONPATH}:${PREFIX}/lib/python3.6/site-packages" \
-    ACCODE=LaSRCL8V3.5.1 \
+    ACCODE="LaSRC v3.5.2" \
     LC_ALL=en_US.utf-8 \
     LANG=en_US.utf-8
 
