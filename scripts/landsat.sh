@@ -12,8 +12,6 @@ inputbucket="$INPUT_BUCKET"
 prefix="$PREFIX"
 workingdir="/var/scratch/${jobid}"
 granuledir="${workingdir}/${granule}"
-# shellcheck disable=2153
-ACCODE="LaSRC v3.5.1.0"
 
 # Remove tmp files on exit
 # shellcheck disable=2064
