@@ -13,7 +13,7 @@ prefix="$PREFIX"
 workingdir="/var/scratch/${jobid}"
 granuledir="${workingdir}/${granule}"
 # shellcheck disable=2153
-ACCODE=Lasrc
+ACCODE="LaSRC v3.5.2"
 
 # Remove tmp files on exit
 # shellcheck disable=2064
