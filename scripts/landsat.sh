@@ -1,22 +1,26 @@
 #!/bin/bash
 
 # Exit on any error
-set -o errexit
+#set -o errexit
 
-jobid="$AWS_BATCH_JOB_ID"
+save_debug_output="$SAVE_DEBUG_OUTPUT"
+exit_after_fmask="$EXIT_AFTER_FMASK"
+exit_after_lasrc="$EXIT_AFTER_LASRC"
+
 # shellcheck disable=2153
-granule="$GRANULE"
-bucket="$OUTPUT_BUCKET"
-inputbucket="$INPUT_BUCKET"
-# shellcheck disable=2153
-prefix="$PREFIX"
-workingdir="/var/scratch/${jobid}"
+granule="$GRANULE" #"LC08_L1TP_096011_20250819_20250820_02_RT"
+inputdir="/tmp/l30_input"
+outputdir="/tmp/l30_int_output"
+
+#shellcheck disable=2153
+workingdir="/var/scratch"
 granuledir="${workingdir}/${granule}"
 
 # Remove tmp files on exit
 # shellcheck disable=2064
 trap "rm -rf $workingdir; exit" INT TERM EXIT
 
+fmaskversion="4.7"
 rename_angle_bands () {
   anglebasename=$1
   newbasename=$2
@@ -31,13 +35,15 @@ rename_angle_bands () {
 }
 
 # Create workingdir
+echo $granuledir
 mkdir -p "$granuledir"
 
 
 echo "Start processing granules"
 
-echo "Copying granule from USGS S3"
-granule=$(download_landsat "$inputbucket" "$prefix" "$granuledir")
+#echo "Copying granule from USGS S3"
+echo "copying granule to working dir"
+cp -r "${inputdir}/${granule}/" "$workingdir" 
 
 fmask="${granule}_Fmask4.tif"
 fmaskbin=fmask.bin
@@ -70,7 +76,16 @@ cd "$granuledir"
 # rm *.IMD
 
 # Run Fmask
+echo "running fmask"
 run_Fmask.sh >> fmask_out.txt
+echo "fmask completed"
+
+if [ "$exit_after_fmask" == "true" ]; then
+  mkdir -p "${outputdir}/${outputname}/"
+  cp $fmask "${outputdir}/${outputname}/${granule}_Fmask${fmaskversion}.tif"
+  echo "Fmask successfully completed. Exiting now"
+  exit
+fi
 
 # Convert to flat binary
 gdal_translate -of ENVI "$fmask" "$fmaskbin"
@@ -97,6 +112,12 @@ convert_lpgs_to_espa --mtl="$mtl"
 echo "Run lasrc"
 do_lasrc_landsat.py --xml "$espa_xml"
 
+if [ "$exit_after_lasrc" == "true" ]; then
+  rsync -av  ${workingdir}/ "${outputdir}/${outputname}/"
+  echo "LaSRC successfully completed. Saving resampled output to $outputdir. Exiting now"
+  exit
+fi
+
 # Rename Angle bands to align with Collection 2 naming.
 echo "Rename angle bands"
 rename_angle_bands "${granule}" "$outputname"
@@ -114,17 +135,40 @@ echo "Run addFmaskSDS"
 aerosol_qa="${granule}_sr_aerosol_qa.img"
 addFmaskSDS "$srhdf" "$fmaskbin" "$aerosol_qa" "$mtl" "$ACCODE" "$outputhdf"
 
-if [[ -z "$DEBUG_BUCKET" ]]; then
-  aws s3 cp "${outputhdf}" "s3://${bucket_key}/${outputname}.hdf"
-  aws s3 cp "$granuledir" "s3://${bucket_key}" --exclude "*" --include "*_VAA.img" \
-    --include "*_VAA.hdr" --include "*_VZA.hdr" --include "*_VZA.img" \
-    --include "*_SAA.hdr" --include "*_SAA.img" --include "*_SZA.hdr" \
-    --include "*_SZA.img" --recursive --quiet
-else
-  debug_bucket="$DEBUG_BUCKET"
+
+if [ "$save_debug_output" == "false" ]; then
+  echo "saving output to ${outputdir}/${year}-${month}-${day}/${pathrow}"
+  mkdir -p "${outputdir}/${year}-${month}-${day}/${pathrow}"
+  cp "${outputhdf}" "${outputdir}/${year}-${month}-${day}/${pathrow}"
+  rsync -av --include="*_VAA.hdr" --include="*_VZA.hdr" --include="*_VZA.img" \
+   --include="*_SAA.hdr" --include="*_SAA.img" --include="*_SZA.hdr" --include="*_SZA.img" \
+   --include="*_VAA.img" --exclude="*" "${granuledir}" \
+  "${outputdir}/${year}-${month}-${day}/${pathrow}"
+
+elif  [ "$save_debug_output" == "true" ]; then
   # Copy all intermediate files to debug bucket.
-  echo "Copy files to debug bucket"
+  # note we do not want the granule name in the output path. Just the date.
+  # hls-landsat-tile tiles all granules for this date in this dir to MGRS
+  echo "saving intermediate files to ${outputdir}/${year}-${month}-${day}/${pathrow}"
+  mkdir -p "${outputdir}/${year}-${month}-${day}/${pathrow}"
   timestamp=$(date +'%Y_%m_%d_%H_%M')
-  debug_bucket_key=s3://${debug_bucket}/${granule}_${timestamp}
-  aws s3 cp "$granuledir" "$debug_bucket_key" --recursive --quiet
+  rsync -av "$granuledir" "${outputdir}/${year}-${month}-${day}/${pathrow}"
+
+else
+  echo "no files copied. check save_debug_output flag"
 fi
+
+#if [[ -z "$DEBUG_BUCKET" ]]; then
+#  aws s3 cp "${outputhdf}" "s3://${bucket_key}/${outputname}.hdf"
+#  aws s3 cp "$granuledir" "s3://${bucket_key}" --exclude "*" --include "*_VAA.img" \
+#    --include "*_VAA.hdr" --include "*_VZA.hdr" --include "*_VZA.img" \
+#    --include "*_SAA.hdr" --include "*_SAA.img" --include "*_SZA.hdr" \
+#    --include "*_SZA.img" --recursive --quiet
+#else
+#  debug_bucket="$DEBUG_BUCKET"
+#  # Copy all intermediate files to debug bucket.
+#  echo "Copy files to debug bucket"
+#  timestamp=$(date +'%Y_%m_%d_%H_%M')
+#  debug_bucket_key=s3://${debug_bucket}/${granule}_${timestamp}
+#  aws s3 cp "$granuledir" "$debug_bucket_key" --recursive --quiet
+#fi
